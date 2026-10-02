@@ -1,0 +1,110 @@
+- generic [active] [ref=f11e1]:
+  - generic [ref=f11e2]:
+    - complementary [ref=f11e7]:
+      - generic [ref=f11e8]:
+        - link "Z ZapTI" [ref=f11e9] [cursor=pointer]:
+          - /url: /dashboard
+          - generic [ref=f11e10]: Z
+          - generic [ref=f11e12]: ZapTI
+        - button "Colapsar menu" [ref=f11e13] [cursor=pointer]
+      - navigation "Navegação principal" [ref=f11e16]:
+        - list [ref=f11e17]:
+          - listitem [ref=f11e18]:
+            - link "Dashboard" [ref=f11e19] [cursor=pointer]:
+              - /url: /dashboard
+          - listitem [ref=f11e26]:
+            - link "Conversas" [ref=f11e27] [cursor=pointer]:
+              - /url: /conversations
+          - listitem [ref=f11e31]:
+            - link "Tickets" [ref=f11e32] [cursor=pointer]:
+              - /url: /tickets
+          - listitem [ref=f11e36]:
+            - button "Automação" [ref=f11e37] [cursor=pointer]
+          - listitem [ref=f11e45]:
+            - button "Gestão" [ref=f11e46] [cursor=pointer]
+          - listitem [ref=f11e55]:
+            - link "WhatsApp" [ref=f11e56] [cursor=pointer]:
+              - /url: /settings/whatsapp
+          - listitem [ref=f11e60]:
+            - link "Configurações" [ref=f11e61] [cursor=pointer]:
+              - /url: /settings
+      - generic [ref=f11e67]:
+        - generic [ref=f11e68]: M
+        - generic [ref=f11e69]:
+          - paragraph [ref=f11e70]: Matheus Pelissari
+          - paragraph [ref=f11e71]: matheus.test@zapti.app
+    - banner [ref=f11e72]:
+      - generic [ref=f11e74]:
+        - button "Modo escuro" [ref=f11e75] [cursor=pointer]
+        - button "Notificações" [ref=f11e82] [cursor=pointer]
+        - button "M" [ref=f11e86] [cursor=pointer]
+    - main [ref=f11e88]:
+      - generic [ref=f11e90]:
+        - complementary [ref=f11e91]:
+          - generic [ref=f11e92]:
+            - link "Z ZapTI" [ref=f11e93] [cursor=pointer]:
+              - /url: /dashboard
+              - generic [ref=f11e94]: Z
+              - generic [ref=f11e96]: ZapTI
+            - button "Colapsar menu" [ref=f11e97] [cursor=pointer]
+          - navigation "Navegação principal" [ref=f11e100]:
+            - list [ref=f11e101]:
+              - listitem [ref=f11e102]:
+                - link "Dashboard" [ref=f11e103] [cursor=pointer]:
+                  - /url: /dashboard
+              - listitem [ref=f11e110]:
+                - link "Conversas" [ref=f11e111] [cursor=pointer]:
+                  - /url: /conversations
+              - listitem [ref=f11e115]:
+                - link "Tickets" [ref=f11e116] [cursor=pointer]:
+                  - /url: /tickets
+              - listitem [ref=f11e120]:
+                - button "Automação" [ref=f11e121] [cursor=pointer]
+              - listitem [ref=f11e129]:
+                - button "Gestão" [ref=f11e130] [cursor=pointer]
+              - listitem [ref=f11e139]:
+                - link "WhatsApp" [ref=f11e140] [cursor=pointer]:
+                  - /url: /settings/whatsapp
+              - listitem [ref=f11e144]:
+                - link "Configurações" [ref=f11e145] [cursor=pointer]:
+                  - /url: /settings
+          - generic [ref=f11e151]:
+            - generic [ref=f11e152]: M
+            - generic [ref=f11e153]:
+              - paragraph [ref=f11e154]: Matheus Pelissari
+              - paragraph [ref=f11e155]: matheus.test@zapti.app
+        - generic [ref=f11e158]:
+          - button "Modo escuro" [ref=f11e159] [cursor=pointer]
+          - button "Notificações" [ref=f11e166] [cursor=pointer]
+          - button "M" [ref=f11e170] [cursor=pointer]
+        - main [ref=f11e172]:
+          - generic [ref=f11e174]:
+            - generic [ref=f11e175]:
+              - generic [ref=f11e176]:
+                - heading "Olá, Matheus" [level=1] [ref=f11e177]
+                - paragraph [ref=f11e178]: Visão geral da sua central de atendimento
+              - button "Atualizar" [ref=f11e179] [cursor=pointer]
+            - generic [ref=f11e185]:
+              - generic [ref=f11e189]:
+                - paragraph [ref=f11e190]: Tickets
+                - paragraph [ref=f11e191]: "0"
+                - paragraph [ref=f11e192]: 0 abertos
+              - generic [ref=f11e199]:
+                - paragraph [ref=f11e200]: Instâncias WhatsApp
+                - paragraph [ref=f11e201]: "0"
+                - paragraph [ref=f11e202]: 0 conectadas
+              - generic [ref=f11e211]:
+                - paragraph [ref=f11e212]: Mensagens
+                - paragraph [ref=f11e213]: "0"
+                - paragraph [ref=f11e214]: 0 hoje
+              - generic [ref=f11e221]:
+                - paragraph [ref=f11e222]: Membros
+                - paragraph [ref=f11e223]: "1"
+                - paragraph [ref=f11e224]: 1 ativos
+            - generic [ref=f11e232]:
+              - heading "Tickets por Status 0 total" [level=3] [ref=f11e234]:
+                - text: Tickets por Status
+                - generic [ref=f11e235]: 0 total
+              - paragraph [ref=f11e240]: Nenhum ticket ainda. Crie sua primeira instância WhatsApp e comece a atender.
+  - region "Notifications alt+T"
+  - alert [ref=f11e6]

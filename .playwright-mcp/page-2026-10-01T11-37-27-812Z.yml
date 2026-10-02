@@ -1,0 +1,158 @@
+- generic:
+  - generic:
+    - complementary [aria-hidden]:
+      - generic:
+        - link:
+          - /url: /dashboard
+          - generic: Z
+          - generic: ZapTI
+        - button
+      - navigation:
+        - list:
+          - listitem:
+            - link:
+              - /url: /dashboard
+              - generic: Dashboard
+          - listitem:
+            - link:
+              - /url: /conversations
+              - generic: Conversas
+          - listitem:
+            - link:
+              - /url: /tickets
+              - generic: Tickets
+          - listitem:
+            - button:
+              - generic: Automação
+          - listitem:
+            - button:
+              - generic: Gestão
+          - listitem:
+            - link:
+              - /url: /settings/whatsapp
+              - generic: WhatsApp
+          - listitem:
+            - link:
+              - /url: /settings
+              - generic: Configurações
+      - generic:
+        - generic:
+          - generic: M
+          - generic:
+            - paragraph: Matheus Pelissari
+            - paragraph: matheus.test@zapti.app
+    - banner [aria-hidden]:
+      - generic:
+        - generic:
+          - button
+          - button
+          - button:
+            - generic: M
+    - main:
+      - generic:
+        - generic:
+          - complementary [aria-hidden]:
+            - generic:
+              - link:
+                - /url: /dashboard
+                - generic: Z
+                - generic: ZapTI
+              - button
+            - navigation:
+              - list:
+                - listitem:
+                  - link:
+                    - /url: /dashboard
+                    - generic: Dashboard
+                - listitem:
+                  - link:
+                    - /url: /conversations
+                    - generic: Conversas
+                - listitem:
+                  - link:
+                    - /url: /tickets
+                    - generic: Tickets
+                - listitem:
+                  - button:
+                    - generic: Automação
+                - listitem:
+                  - button:
+                    - generic: Gestão
+                - listitem:
+                  - link:
+                    - /url: /settings/whatsapp
+                    - generic: WhatsApp
+                - listitem:
+                  - link:
+                    - /url: /settings
+                    - generic: Configurações
+            - generic:
+              - generic:
+                - generic: M
+                - generic:
+                  - paragraph: Matheus Pelissari
+                  - paragraph: matheus.test@zapti.app
+          - generic:
+            - generic:
+              - generic:
+                - button [aria-hidden]
+                - button [aria-hidden]
+                - button [expanded] [aria-hidden]:
+                  - generic: M
+                - menu "M" [active] [ref=f12e241]:
+                  - generic [ref=f12e243]:
+                    - paragraph [ref=f12e244]: Matheus Pelissari
+                    - paragraph [ref=f12e245]: matheus.test@zapti.app
+                  - separator
+                  - menuitem "Perfil" [ref=f12e246] [cursor=pointer]
+                  - menuitem "Configurações" [ref=f12e251] [cursor=pointer]
+                  - separator
+                  - menuitem "Sair" [ref=f12e256]
+          - main [aria-hidden]:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - heading [level=1]: Olá, Matheus
+                    - paragraph: Visão geral da sua central de atendimento
+                  - button: Atualizar
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - paragraph: Tickets
+                          - paragraph: "0"
+                          - paragraph: 0 abertos
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - paragraph: Instâncias WhatsApp
+                          - paragraph: "0"
+                          - paragraph: 0 conectadas
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - paragraph: Mensagens
+                          - paragraph: "0"
+                          - paragraph: 0 hoje
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - paragraph: Membros
+                          - paragraph: "1"
+                          - paragraph: 1 ativos
+                - generic:
+                  - generic:
+                    - generic:
+                      - heading [level=3]:
+                        - text: Tickets por Status
+                        - generic: 0 total
+                    - generic:
+                      - generic:
+                        - paragraph: Nenhum ticket ainda. Crie sua primeira instância WhatsApp e comece a atender.
+  - region "Notifications alt+T"
+  - alert

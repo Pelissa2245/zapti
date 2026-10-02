@@ -1,0 +1,262 @@
+// ZapTI Shared — Constants
+export const ROLE_PERMISSIONS: Record<string, string[]> = {
+  ADMIN: ['*'], // All permissions
+  SUPERVISOR: [
+    'users:read',
+    'users:create',
+    'users:update',
+    'users:invite',
+    'teams:read',
+    'teams:create',
+    'teams:update',
+    'teams:delete',
+    'sessions:read',
+    'sessions:revoke',
+    'whatsapp:read',
+    'whatsapp:send',
+    'whatsapp:connect',
+    'conversations:read',
+    'conversations:create',
+    'conversations:update',
+    'conversations:send',
+    'conversations:delete',
+    'tickets:read',
+    'tickets:create',
+    'tickets:update',
+    'tickets:delete',
+    'tickets:comment',
+    'tickets:admin',
+    'tickets:assign',
+    'flows:read',
+    'flows:create',
+    'flows:update',
+    'flows:execute',
+    'automations:read',
+    'automations:create',
+    'automations:update',
+    'automations:execute',
+    'audit:read',
+    'backups:read',
+  ],
+  AGENT: [
+    'users:read',
+    'teams:read',
+    'whatsapp:read', 'whatsapp:send', 'whatsapp:connect',
+    'contacts:read', 'contacts:create', 'contacts:update',
+    'conversations:read', 'conversations:update', 'conversations:send', 'conversations:comment',
+    'tickets:read', 'tickets:create', 'tickets:update', 'tickets:comment',
+    'flows:read',
+    'automations:read',
+  ],
+  READONLY: [
+    'users:read',
+    'teams:read',
+    'whatsapp:read',
+    'contacts:read',
+    'conversations:read',
+    'tickets:read',
+    'flows:read',
+    'automations:read',
+    'audit:read',
+  ],
+};
+
+export const TICKET_STATUS = ['OPEN', 'IN_PROGRESS', 'WAITING_CUSTOMER', 'WAITING_AGENT', 'RESOLVED', 'CLOSED'] as const;
+export const TICKET_PRIORITY = ['LOW', 'NORMAL', 'HIGH', 'URGENT'] as const;
+
+export const CONVERSATION_STATUS = ['OPEN', 'PENDING', 'CLOSED', 'SNOOZED'] as const;
+export const CONVERSATION_PRIORITY = ['LOW', 'NORMAL', 'HIGH', 'URGENT'] as const;
+
+export const MESSAGE_TYPES = ['TEXT', 'IMAGE', 'DOCUMENT', 'AUDIO', 'VIDEO', 'LOCATION', 'CONTACT', 'TEMPLATE', 'INTERACTIVE'] as const;
+export const MESSAGE_DIRECTIONS = ['INBOUND', 'OUTBOUND'] as const;
+export const MESSAGE_STATUSES = ['PENDING', 'SENT', 'DELIVERED', 'READ', 'FAILED'] as const;
+
+export const WHATSAPP_INSTANCE_STATUS = ['DISCONNECTED', 'QR_CODE', 'CONNECTING', 'CONNECTED', 'ERROR'] as const;
+
+export const FLOW_NODE_TYPES = ['TRIGGER', 'CONDITION', 'ACTION', 'DELAY', 'WEBHOOK', 'SUBFLOW'] as const;
+export const FLOW_EXECUTION_STATUS = ['RUNNING', 'COMPLETED', 'FAILED', 'CANCELLED'] as const;
+
+export const AUTOMATION_SCHEDULE_TYPES = ['CRON', 'INTERVAL', 'ONCE'] as const;
+export const AUTOMATION_ACTION_TYPES = ['SEND_MESSAGE', 'CREATE_TICKET', 'RUN_FLOW', 'WEBHOOK', 'UPDATE_CONVERSATION', 'ASSIGN_AGENT', 'SEND_EMAIL'] as const;
+export const AUTOMATION_EXECUTION_STATUS = ['RUNNING', 'COMPLETED', 'FAILED'] as const;
+
+export const BACKUP_TYPES = ['FULL', 'TENANT_DATA', 'CONFIG_ONLY'] as const;
+export const BACKUP_STATUS = ['IN_PROGRESS', 'COMPLETED', 'FAILED'] as const;
+
+export const AUDIT_ACTIONS = {
+  // Auth
+  LOGIN: 'LOGIN',
+  LOGOUT: 'LOGOUT',
+  LOGIN_FAILED: 'LOGIN_FAILED',
+  PASSWORD_CHANGED: 'PASSWORD_CHANGED',
+  PASSWORD_RESET: 'PASSWORD_RESET',
+  TWO_FACTOR_ENABLED: 'TWO_FACTOR_ENABLED',
+  TWO_FACTOR_DISABLED: 'TWO_FACTOR_DISABLED',
+  // Users
+  USER_CREATED: 'USER_CREATED',
+  USER_UPDATED: 'USER_UPDATED',
+  USER_DELETED: 'USER_DELETED',
+  USER_PASSWORD_RESET: 'USER_PASSWORD_RESET',
+  // Teams
+  TEAM_CREATED: 'TEAM_CREATED',
+  TEAM_UPDATED: 'TEAM_UPDATED',
+  TEAM_DELETED: 'TEAM_DELETED',
+  TEAM_MEMBER_ADDED: 'TEAM_MEMBER_ADDED',
+  TEAM_MEMBER_REMOVED: 'TEAM_MEMBER_REMOVED',
+  // Sessions
+  SESSION_REVOKED: 'SESSION_REVOKED',
+  SESSIONS_REVOKED_ALL: 'SESSIONS_REVOKED_ALL',
+  SESSION_REVOKED_BY_ADMIN: 'SESSION_REVOKED_BY_ADMIN',
+  // WhatsApp
+  WHATSAPP_INSTANCE_CREATED: 'WHATSAPP_INSTANCE_CREATED',
+  WHATSAPP_INSTANCE_UPDATED: 'WHATSAPP_INSTANCE_UPDATED',
+  WHATSAPP_INSTANCE_DELETED: 'WHATSAPP_INSTANCE_DELETED',
+  WHATSAPP_INSTANCE_CONNECTED: 'WHATSAPP_INSTANCE_CONNECTED',
+  WHATSAPP_INSTANCE_DISCONNECTED: 'WHATSAPP_INSTANCE_DISCONNECTED',
+  MESSAGE_SENT: 'MESSAGE_SENT',
+  // Conversations
+  CONVERSATION_UPDATED: 'CONVERSATION_UPDATED',
+  CONVERSATION_ASSIGNED: 'CONVERSATION_ASSIGNED',
+  CONVERSATION_TRANSFERRED: 'CONVERSATION_TRANSFERRED',
+  CONVERSATION_TAG_ADDED: 'CONVERSATION_TAG_ADDED',
+  CONVERSATION_TAG_REMOVED: 'CONVERSATION_TAG_REMOVED',
+  CONVERSATION_CLOSED: 'CONVERSATION_CLOSED',
+  CONVERSATION_REOPENED: 'CONVERSATION_REOPENED',
+  CONVERSATION_SNOOZED: 'CONVERSATION_SNOOZED',
+  // Tickets
+  TICKET_CREATED: 'TICKET_CREATED',
+  TICKET_UPDATED: 'TICKET_UPDATED',
+  TICKET_CLOSED: 'TICKET_CLOSED',
+  TICKET_COMMENT_ADDED: 'TICKET_COMMENT_ADDED',
+  TICKET_COMMENT_UPDATED: 'TICKET_COMMENT_UPDATED',
+  TICKET_COMMENT_DELETED: 'TICKET_COMMENT_DELETED',
+  TICKET_CATEGORY_CREATED: 'TICKET_CATEGORY_CREATED',
+  TICKET_CATEGORY_UPDATED: 'TICKET_CATEGORY_UPDATED',
+  TICKET_CATEGORY_DELETED: 'TICKET_CATEGORY_DELETED',
+  // Flows
+  FLOW_CREATED: 'FLOW_CREATED',
+  FLOW_UPDATED: 'FLOW_UPDATED',
+  FLOW_DELETED: 'FLOW_DELETED',
+  FLOW_TOGGLED: 'FLOW_TOGGLED',
+  FLOW_EXECUTED: 'FLOW_EXECUTED',
+  // Automations
+  AUTOMATION_CREATED: 'AUTOMATION_CREATED',
+  AUTOMATION_UPDATED: 'AUTOMATION_UPDATED',
+  AUTOMATION_DELETED: 'AUTOMATION_DELETED',
+  AUTOMATION_TOGGLED: 'AUTOMATION_TOGGLED',
+  AUTOMATION_EXECUTED: 'AUTOMATION_EXECUTED',
+  // Backups
+  BACKUP_CREATED: 'BACKUP_CREATED',
+  BACKUP_COMPLETED: 'BACKUP_COMPLETED',
+  BACKUP_FAILED: 'BACKUP_FAILED',
+  BACKUP_DELETED: 'BACKUP_DELETED',
+  BACKUP_RESTORE_STARTED: 'BACKUP_RESTORE_STARTED',
+  // Tenants (superadmin)
+  TENANT_CREATED: 'TENANT_CREATED',
+  TENANT_UPDATED: 'TENANT_UPDATED',
+  TENANT_SUSPENDED: 'TENANT_SUSPENDED',
+  TENANT_ACTIVATED: 'TENANT_ACTIVATED',
+  TENANT_DELETED: 'TENANT_DELETED',
+  TENANT_IMPERSONATED: 'TENANT_IMPERSONATED',
+} as const;
+
+export const PAGINATION_DEFAULTS = {
+  DEFAULT_PAGE: 1,
+  DEFAULT_LIMIT: 20,
+  MAX_LIMIT: 100,
+};
+
+export const RATE_LIMITS = {
+  AUTH_LOGIN: { max: 5, windowMs: 15 * 60 * 1000 },
+  AUTH_REGISTER: { max: 3, windowMs: 60 * 60 * 1000 },
+  AUTH_REFRESH: { max: 10, windowMs: 60 * 1000 },
+  WHATSAPP_SEND: { max: 30, windowMs: 60 * 1000 },
+  API_DEFAULT: { max: 100, windowMs: 60 * 1000 },
+};
+
+export const FILE_UPLOAD = {
+  MAX_SIZE: 50 * 1024 * 1024, // 50MB
+  ALLOWED_TYPES: {
+    IMAGE: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+    DOCUMENT: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+    AUDIO: ['audio/mpeg', 'audio/ogg', 'audio/wav'],
+    VIDEO: ['video/mp4', 'video/quicktime'],
+  },
+};
+
+export const CACHE_TTL = {
+  SHORT: 60, // 1 minute
+  MEDIUM: 300, // 5 minutes
+  LONG: 3600, // 1 hour
+  VERY_LONG: 86400, // 24 hours
+};
+
+export const WEBSOCKET_EVENTS = {
+  CONVERSATION_CREATED: 'conversation:created',
+  CONVERSATION_UPDATED: 'conversation:updated',
+  CONVERSATION_ASSIGNED: 'conversation:assigned',
+  CONVERSATION_CLOSED: 'conversation:closed',
+  CONVERSATION_REOPENED: 'conversation:reopened',
+  MESSAGE_NEW: 'message:new',
+  MESSAGE_UPDATED: 'message:updated',
+  TICKET_CREATED: 'ticket:created',
+  TICKET_UPDATED: 'ticket:updated',
+  TICKET_ASSIGNED: 'ticket:assigned',
+  USER_ONLINE: 'user:online',
+  USER_OFFLINE: 'user:offline',
+  NOTIFICATION: 'notification',
+} as const;
+
+export const ERROR_CODES = {
+  UNAUTHORIZED: 'UNAUTHORIZED',
+  FORBIDDEN: 'FORBIDDEN',
+  NOT_FOUND: 'NOT_FOUND',
+  VALIDATION_ERROR: 'VALIDATION_ERROR',
+  INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
+  EMAIL_EXISTS: 'EMAIL_EXISTS',
+  SLUG_EXISTS: 'SLUG_EXISTS',
+  DOMAIN_EXISTS: 'DOMAIN_EXISTS',
+  ALREADY_IN_TENANT: 'ALREADY_IN_TENANT',
+  INVALID_2FA: 'INVALID_2FA',
+  INVALID_RESET_TOKEN: 'INVALID_RESET_TOKEN',
+  INVALID_PASSWORD: 'INVALID_PASSWORD',
+  ALREADY_ENABLED: 'ALREADY_ENABLED',
+  LAST_ADMIN: 'LAST_ADMIN',
+  CANNOT_DEACTIVATE_SELF: 'CANNOT_DEACTIVATE_SELF',
+  CANNOT_REMOVE_SELF: 'CANNOT_REMOVE_SELF',
+  NAME_EXISTS: 'NAME_EXISTS',
+  INVALID_MEMBERS: 'INVALID_MEMBERS',
+  CONTACT_NOT_FOUND: 'CONTACT_NOT_FOUND',
+  INSTANCE_NOT_CONNECTED: 'INSTANCE_NOT_CONNECTED',
+  CONVERSATION_CLOSED: 'CONVERSATION_CLOSED',
+  ALREADY_CLOSED: 'ALREADY_CLOSED',
+  NOT_CLOSED: 'NOT_CLOSED',
+  TAG_EXISTS: 'TAG_EXISTS',
+  TAG_NOT_FOUND: 'TAG_NOT_FOUND',
+  INVALID_ASSIGNEE: 'INVALID_ASSIGNEE',
+  INVALID_TEAM: 'INVALID_TEAM',
+  INVALID_CONTACT: 'INVALID_CONTACT',
+  INVALID_CONVERSATION: 'INVALID_CONVERSATION',
+  INVALID_CATEGORY: 'INVALID_CATEGORY',
+  NO_TRIGGER: 'NO_TRIGGER',
+  INVALID_FLOW: 'INVALID_FLOW',
+  INVALID_SCHEDULE: 'INVALID_SCHEDULE',
+  BACKUP_IN_PROGRESS: 'BACKUP_IN_PROGRESS',
+  NOT_COMPLETED: 'NOT_COMPLETED',
+  FILE_NOT_FOUND: 'FILE_NOT_FOUND',
+  IN_PROGRESS: 'IN_PROGRESS',
+  HAS_TICKETS: 'HAS_TICKETS',
+  HAS_CHILDREN: 'HAS_CHILDREN',
+  ALREADY_SUSPENDED: 'ALREADY_SUSPENDED',
+  ALREADY_ACTIVE: 'ALREADY_ACTIVE',
+  ALREADY_DELETED: 'ALREADY_DELETED',
+  NO_ADMIN: 'NO_ADMIN',
+  CONFIRM_REQUIRED: 'CONFIRM_REQUIRED',
+  INVALID_SIGNATURE: 'INVALID_SIGNATURE',
+  TOKEN_EXPIRED: 'TOKEN_EXPIRED',
+  NO_REFRESH_TOKEN: 'NO_REFRESH_TOKEN',
+  INVALID_REFRESH_TOKEN: 'INVALID_REFRESH_TOKEN',
+  ALREADY_REVOKED: 'ALREADY_REVOKED',
+  NO_SESSION: 'NO_SESSION',
+  TWO_FA_NOT_SETUP: '2FA_NOT_SETUP',
+} as const;

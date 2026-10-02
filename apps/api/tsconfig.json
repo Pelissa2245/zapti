@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "baseUrl": ".",
+    "paths": {
+      "@zapti/shared": ["../../packages/shared/dist/index"],
+      "@zapti/shared/*": ["../../packages/shared/dist/*"],
+      "@zapti/database": ["../../packages/database/dist/index"],
+      "@zapti/database/*": ["../../packages/database/dist/*"]
+    },
+    "types": ["node"],
+    "noEmit": false
+  },
+  "include": ["src/**/*", "src/types/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

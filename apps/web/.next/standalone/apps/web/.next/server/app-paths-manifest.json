@@ -1,0 +1,17 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/auth/login/route": "app/api/auth/login/route.js",
+  "/api/auth/logout/route": "app/api/auth/logout/route.js",
+  "/api/auth/me/route": "app/api/auth/me/route.js",
+  "/api/auth/refresh/route": "app/api/auth/refresh/route.js",
+  "/api/auth/register/route": "app/api/auth/register/route.js",
+  "/api/dashboard/stats/route": "app/api/dashboard/stats/route.js",
+  "/page": "app/page.js",
+  "/auth/login/page": "app/auth/login/page.js",
+  "/auth/onboarding/page": "app/auth/onboarding/page.js",
+  "/auth/register/page": "app/auth/register/page.js",
+  "/api/auth/complete-onboarding/route": "app/api/auth/complete-onboarding/route.js",
+  "/api/auth/onboarding-status/route": "app/api/auth/onboarding-status/route.js",
+  "/superadmin/tenants/page": "app/superadmin/tenants/page.js",
+  "/(app)/dashboard/page": "app/(app)/dashboard/page.js"
+}

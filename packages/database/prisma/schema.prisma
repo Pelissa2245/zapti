@@ -1,0 +1,691 @@
+// ZapTI Database Schema
+// This is the main Prisma schema for the multi-tenant WhatsApp helpdesk platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// CORE MODELS
+// ============================================
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  name              String
+  passwordHash      String
+  avatarUrl         String?
+  isActive          Boolean   @default(true)
+  isSuperadmin      Boolean   @default(false)
+  lastLoginAt       DateTime?
+  twoFactorEnabled  Boolean   @default(false)
+  twoFactorSecret   String?
+  twoFactorRecoveryCodes String  @default("[]") // JSON array as string for SQLite
+  onboardingCompleted Boolean   @default(false)
+  language          String?   @default("pt-BR")
+  timezone          String?   @default("America/Sao_Paulo")
+  notificationPreferences String? @default("{}") // JSON string for notification settings
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  tenants           UserTenant[]
+  sessions          Session[]
+  ownedTenants      Tenant[]         @relation("TenantOwner")
+  createdTickets    Ticket[]         @relation("TicketCreator")
+  assignedTickets   Ticket[]         @relation("TicketAssignee")
+  resolvedTickets   Ticket[]         @relation("TicketResolver")
+  closedTickets     Ticket[]         @relation("TicketCloser")
+  ticketComments    TicketComment[]
+  flowExecutions    FlowExecution[]  @relation("FlowExecutionTrigger")
+  automationExecutions AutomationExecution[] @relation("AutomationExecutionTrigger")
+  sentMessages      Message[]        @relation("MessageSender")
+  assignedConversations Conversation[] @relation("ConversationAssignee")
+  closedConversations   Conversation[] @relation("ConversationCloser")
+  userTeams         UserTeam[]
+  messageReactions  MessageReaction[]
+  createdFlows      Flow[]           @relation("FlowCreator")
+  createdAutomations Automation[]    @relation("AutomationCreator")
+  createdBackups    Backup[]         @relation("BackupCreator")
+  auditLogs         AuditLog[]       @relation("AuditLogs")
+  passwordResetTokens PasswordResetToken[] @relation("PasswordResetTokens")
+
+  @@index([email])
+  @@index([isSuperadmin])
+}
+
+model Tenant {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  domain      String?  @unique
+  settings    String   @default("{}") // JSON as string for SQLite
+  status      String   @default("ACTIVE") // ACTIVE, SUSPENDED, DELETED
+  plan        String?  @default("free")
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  owner       User       @relation("TenantOwner", fields: [ownerId], references: [id])
+  users       UserTenant[]
+  contacts    Contact[]     @relation("ContactTenant")
+  conversations Conversation[] @relation("ConversationTenant")
+  whatsappInstances WhatsAppInstance[] @relation("WhatsAppInstanceTenant")
+  flows       Flow[]      @relation("FlowTenant")
+  automations Automation[] @relation("AutomationTenant")
+  tickets     Ticket[]    @relation("TicketTenant")
+  categories  TicketCategory[] @relation("TicketCategoryTenant")
+  backups     Backup[]
+  auditLogs   AuditLog[]    @relation("AuditLogs")
+  sessions    Session[]
+  messages    Message[]
+  messageReactions MessageReaction[]
+  ticketAttachments TicketAttachment[] @relation("TicketAttachmentTenant")
+  flowExecutions FlowExecution[] @relation("FlowExecutionTenant")
+  automationExecutions AutomationExecution[] @relation("AutomationExecutionTenant")
+  teams       Team[]      @relation("TeamTenant")
+  ticketComments TicketComment[] @relation("TicketCommentTenant")
+
+  @@index([slug])
+  @@index([status])
+  @@index([ownerId])
+}
+
+model UserTenant {
+  id          String   @id @default(cuid())
+  userId      String
+  tenantId    String
+  role        String   @default("AGENT") // ADMIN, SUPERVISOR, AGENT, READONLY
+  permissions String   @default("[]") // JSON array as string for SQLite
+  joinedAt    DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  teams       UserTeam[]
+
+  @@unique([userId, tenantId])
+  @@index([userId])
+  @@index([tenantId])
+  @@index([role])
+}
+
+model Session {
+  id            String        @id @default(cuid())
+  userId        String
+  tenantId      String
+  refreshToken  String        @unique
+  userAgent     String?
+  ip            String?
+  deviceName    String?
+  status        String        @default("ACTIVE") // ACTIVE, REVOKED, EXPIRED
+  expiresAt     DateTime
+  lastActiveAt  DateTime      @default(now())
+  revokedAt     DateTime?
+  createdAt     DateTime      @default(now())
+
+  // Relations
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tenantId])
+  @@index([refreshToken])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  // Relations
+  user      User     @relation("PasswordResetTokens", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@index([expiresAt])
+}
+
+// ============================================
+// WHATSAPP MODELS
+// ============================================
+
+model WhatsAppInstance {
+  id            String   @id @default(cuid())
+  tenantId      String
+  name          String
+  phoneNumber   String?
+  webhookUrl    String?
+  webhookSecret String?
+  qrCode        String?
+  encryptionKey String
+  settings      String   @default("{}") // JSON as string for SQLite
+  status        String   @default("DISCONNECTED") // DISCONNECTED, CONNECTING, CONNECTED, QR_CODE_REQUIRED, FAILED
+  lastConnected DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  tenant        Tenant        @relation("WhatsAppInstanceTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+  contacts      Contact[]
+  conversations Conversation[]
+  messages      Message[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([phoneNumber])
+}
+
+model Contact {
+  id            String   @id @default(cuid())
+  tenantId      String
+  instanceId    String
+  name          String?
+  phoneNumber   String
+  email         String?
+  profilePicUrl String?
+  isBlocked     Boolean  @default(false)
+  tags          String   @default("[]") // JSON array as string for SQLite
+  metadata      String   @default("{}") // JSON as string for SQLite
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  tenant        Tenant        @relation("ContactTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+  instance      WhatsAppInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+  messages      Message[]
+  tickets       Ticket[]
+
+  @@unique([instanceId, phoneNumber])
+  @@index([tenantId])
+  @@index([instanceId])
+  @@index([phoneNumber])
+  @@index([email])
+  @@index([isBlocked])
+}
+
+model Conversation {
+  id              String   @id @default(cuid())
+  tenantId        String
+  contactId       String
+  instanceId      String
+  assignedTo      String?
+  teamId          String?
+  status          String   @default("OPEN") // OPEN, CLOSED, SNOOZED, PENDING
+  priority        String   @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+  unreadCount     Int      @default(0)
+  lastMessage     String?
+  lastMessageAt   DateTime?
+  lastReadAt      DateTime?
+  snoozedUntil    DateTime?
+  tags            String   @default("[]") // JSON array as string for SQLite
+  metadata        String   @default("{}") // JSON as string for SQLite
+  closedAt        DateTime?
+  closedBy        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  tenant          Tenant        @relation("ConversationTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+  contact         Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  instance        WhatsAppInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  assignee        User?         @relation("ConversationAssignee", fields: [assignedTo], references: [id])
+  team            Team?         @relation(fields: [teamId], references: [id])
+  closer          User?         @relation("ConversationCloser", fields: [closedBy], references: [id])
+  messages        Message[]
+  tickets         Ticket[]
+
+  @@index([tenantId])
+  @@index([contactId])
+  @@index([instanceId])
+  @@index([assignedTo])
+  @@index([teamId])
+  @@index([status])
+  @@index([priority])
+  @@index([lastMessageAt])
+}
+
+// ============================================
+// MESSAGE MODELS
+// ============================================
+
+model Message {
+  id              String       @id @default(cuid())
+  tenantId        String
+  conversationId  String
+  instanceId      String
+  contactId       String
+  senderId        String?
+  type            String // TEXT, IMAGE, VIDEO, AUDIO, DOCUMENT, STICKER, LOCATION, CONTACT, REACTION, TEMPLATE, INTERACTIVE, SYSTEM
+  direction       String // INBOUND, OUTBOUND
+  content         String?
+  mediaUrl        String?
+  mediaType       String?
+  mediaSize       Int?
+  mediaCaption    String?
+  status          String   @default("SENT") // SENT, DELIVERED, READ, FAILED
+  externalId      String?      // WhatsApp message ID
+  repliedToId     String?
+  templateParams  String?      // JSON as string for SQLite
+  interactiveButtons String?   // JSON as string for SQLite
+  interactiveList String?     // JSON as string for SQLite
+  errorMessage    String?
+  sentAt          DateTime?
+  deliveredAt     DateTime?
+  readAt          DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation    Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  instance        WhatsAppInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  contact         Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  sender          User?         @relation("MessageSender", fields: [senderId], references: [id])
+  repliedTo       Message?      @relation("MessageReply", fields: [repliedToId], references: [id])
+  replies         Message[]     @relation("MessageReply")
+  reactions       MessageReaction[]
+
+  @@index([tenantId])
+  @@index([conversationId])
+  @@index([instanceId])
+  @@index([contactId])
+  @@index([senderId])
+  @@index([externalId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([direction])
+}
+
+model MessageReaction {
+  id          String   @id @default(cuid())
+  tenantId    String
+  messageId   String
+  userId      String
+  emoji       String
+  createdAt   DateTime @default(now())
+
+  // Relations
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  message     Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([tenantId])
+  @@index([messageId])
+  @@index([userId])
+}
+
+// ============================================
+// TICKET MODELS
+// ============================================
+
+model Ticket {
+  id              String       @id @default(cuid())
+  tenantId        String
+  conversationId  String?
+  contactId       String?
+  categoryId      String?
+  title           String
+  description     String?
+  status          String   @default("OPEN") // OPEN, IN_PROGRESS, WAITING_CUSTOMER, WAITING_AGENT, RESOLVED, CLOSED
+  priority        String   @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+  assignedTo      String?
+  teamId          String?
+  dueAt           DateTime?
+  slaHours        Int?
+  resolvedAt      DateTime?
+  resolvedBy      String?
+  closedAt        DateTime?
+  closedBy        String?
+  tags            String       @default("[]") // JSON array as string for SQLite
+  metadata        String       @default("{}") // JSON as string for SQLite
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdBy       String
+
+  // Relations
+  tenant          Tenant           @relation("TicketTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation    Conversation?    @relation(fields: [conversationId], references: [id])
+  contact         Contact?         @relation(fields: [contactId], references: [id])
+  category        TicketCategory?  @relation(fields: [categoryId], references: [id])
+  assignee        User?            @relation("TicketAssignee", fields: [assignedTo], references: [id])
+  team            Team?            @relation(fields: [teamId], references: [id])
+  creator         User             @relation("TicketCreator", fields: [createdBy], references: [id])
+  resolver        User?            @relation("TicketResolver", fields: [resolvedBy], references: [id])
+  closer          User?            @relation("TicketCloser", fields: [closedBy], references: [id])
+  comments        TicketComment[]
+  attachments     TicketAttachment[]
+
+  @@index([tenantId])
+  @@index([conversationId])
+  @@index([contactId])
+  @@index([categoryId])
+  @@index([assignedTo])
+  @@index([teamId])
+  @@index([createdBy])
+  @@index([dueAt])
+  @@index([createdAt])
+}
+
+model TicketAttachment {
+  id          String   @id @default(cuid())
+  tenantId    String
+  ticketId    String
+  commentId   String?
+  fileName    String
+  fileUrl     String
+  fileType    String
+  fileSize    Int
+  createdAt   DateTime @default(now())
+
+  // Relations
+  tenant      Tenant         @relation("TicketAttachmentTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+  ticket      Ticket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  comment     TicketComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([ticketId])
+  @@index([commentId])
+}
+
+// ============================================
+// FLOW MODELS
+// ============================================
+
+model Flow {
+  id              String           @id @default(cuid())
+  tenantId        String
+  name            String
+  description     String?
+  triggerType     String // MESSAGE_RECEIVED, CONVERSATION_OPENED, CONVERSATION_CLOSED, TICKET_CREATED, TICKET_UPDATED, TICKET_CLOSED, CONTACT_CREATED, CONTACT_UPDATED, SCHEDULED, WEBHOOK, MANUAL
+  triggerConfig   String           // JSON as string for SQLite
+  nodes           String           // JSON as string for SQLite
+  edges           String           // JSON as string for SQLite
+  settings        String           @default("{}") // JSON as string for SQLite
+  isActive        Boolean          @default(true)
+  version         Int              @default(1)
+  createdBy       String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  // Relations
+  tenant          Tenant             @relation("FlowTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+  creator         User               @relation("FlowCreator", fields: [createdBy], references: [id])
+  executions      FlowExecution[]
+
+  @@index([tenantId])
+  @@index([isActive])
+  @@index([triggerType])
+  @@index([createdBy])
+}
+
+// ============================================
+// FLOW EXECUTION MODELS
+// ============================================
+
+model FlowExecution {
+  id              String               @id @default(cuid())
+  flowId          String
+  tenantId        String
+  triggerData     String               // JSON as string for SQLite
+  status          String   @default("PENDING") // PENDING, RUNNING, COMPLETED, FAILED, CANCELLED
+  currentNodeId   String?
+  context         String               @default("{}") // JSON as string for SQLite
+  error           String?
+  startedAt       DateTime             @default(now())
+  completedAt     DateTime?
+  triggeredBy     String?
+
+  // Relations
+  flow            Flow                @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  tenant          Tenant              @relation("FlowExecutionTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+  triggerUser     User?               @relation("FlowExecutionTrigger", fields: [triggeredBy], references: [id])
+  steps           FlowExecutionStep[]
+
+  @@index([flowId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([triggeredBy])
+  @@index([startedAt])
+}
+
+model FlowExecutionStep {
+  id              String   @id @default(cuid())
+  executionId     String
+  nodeId          String
+  nodeType        String // START, END, CONDITION, ACTION, DELAY, WEBHOOK, MESSAGE, ASSIGN_CONVERSATION, CREATE_TICKET, UPDATE_TICKET, SEND_MESSAGE, ADD_TAG, REMOVE_TAG, SET_PRIORITY, SET_ASSIGNEE, CUSTOM
+  input           String   // JSON as string for SQLite
+  output          String?  // JSON as string for SQLite
+  status          String   @default("PENDING") // PENDING, RUNNING, COMPLETED, FAILED, CANCELLED
+  error           String?
+  startedAt       DateTime @default(now())
+  completedAt     DateTime?
+
+  // Relations
+  execution       FlowExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([executionId])
+  @@index([nodeId])
+  @@index([status])
+}
+
+// ============================================
+// AUTOMATION MODELS
+// ============================================
+
+model Automation {
+  id              String               @id @default(cuid())
+  tenantId        String
+  name            String
+  description     String?
+  schedule        String               // JSON as string for SQLite
+  action          String               // JSON as string for SQLite
+  target          String?              // JSON as string for SQLite
+  conditions      String               @default("[]") // JSON array as string for SQLite
+  settings        String               @default("{}") // JSON as string for SQLite
+  isActive        Boolean              @default(true)
+  tags            String?              @default("") // Comma-separated tags
+  nextRunAt       DateTime?
+  executionCount  Int                  @default(0)
+  createdBy       String
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  // Relations
+  tenant          Tenant                @relation("AutomationTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+  creator         User                  @relation("AutomationCreator", fields: [createdBy], references: [id])
+  executions      AutomationExecution[]
+
+  @@index([tenantId])
+  @@index([isActive])
+  @@index([createdBy])
+}
+
+model AutomationExecution {
+  id              String                   @id @default(cuid())
+  automationId    String
+  tenantId        String
+  triggerData     String                   // JSON as string for SQLite
+  triggerType     String   @default("MANUAL") // MANUAL, SCHEDULED
+  status          String   @default("PENDING") // PENDING, RUNNING, COMPLETED, FAILED, CANCELLED
+  output          String?                  // JSON as string for SQLite
+  error           String?
+  startedAt       DateTime                 @default(now())
+  completedAt     DateTime?
+  triggeredBy     String?
+
+  // Relations
+  automation      Automation             @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  tenant          Tenant                 @relation("AutomationExecutionTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+  triggerUser     User?                  @relation("AutomationExecutionTrigger", fields: [triggeredBy], references: [id])
+
+  @@index([automationId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([triggeredBy])
+  @@index([startedAt])
+}
+
+// ============================================
+// TEAM MODELS
+// ============================================
+
+model Team {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  color       String   @default("#3B82F6")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant      Tenant       @relation("TeamTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+  members     UserTeam[]
+  conversations Conversation[]
+  tickets     Ticket[]
+
+  @@index([tenantId])
+  @@index([name])
+}
+
+model UserTeam {
+  id          String   @id @default(cuid())
+  userId      String
+  teamId      String
+  userTenantId String?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team        Team       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userTenant  UserTenant? @relation(fields: [userTenantId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, teamId])
+  @@index([userId])
+  @@index([teamId])
+  @@index([userTenantId])
+}
+
+// ============================================
+// BACKUP MODELS
+// ============================================
+
+model Backup {
+  id              String       @id @default(cuid())
+  tenantId        String
+  type            String // FULL, INCREMENTAL, CONFIG_ONLY, MEDIA_ONLY
+  status          String   @default("PENDING") // PENDING, RUNNING, COMPLETED, FAILED
+  filePath        String?
+  fileSize        Int?
+  error           String?
+  metadata        String       @default("{}") // JSON as string for SQLite
+  startedAt       DateTime     @default(now())
+  completedAt     DateTime?
+  createdBy       String
+
+  // Relations
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator         User         @relation("BackupCreator", fields: [createdBy], references: [id])
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([type])
+  @@index([createdBy])
+}
+
+// ============================================
+// AUDIT LOG
+// ============================================
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  tenantId      String?
+  userId        String?
+  action        String
+  entityType    String?
+  entityId      String?
+  description   String
+  metadata      String   @default("{}") // JSON as string for SQLite
+  ip            String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+
+  // Relations
+  tenant        Tenant?  @relation("AuditLogs", fields: [tenantId], references: [id], onDelete: SetNull)
+  user          User?    @relation("AuditLogs", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([action])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([createdAt])
+}
+
+// ============================================
+// TICKET CATEGORY
+// ============================================
+
+model TicketCategory {
+  id              String   @id @default(cuid())
+  tenantId        String
+  name            String
+  description     String?
+  color           String   @default("#3B82F6")
+  parentId        String?
+  order           Int      @default(0)
+  isActive        Boolean  @default(true)
+  slaHours        Int?
+  slaResponseHours Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  tenant          Tenant           @relation("TicketCategoryTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+  parent          TicketCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children        TicketCategory[] @relation("CategoryHierarchy")
+  tickets         Ticket[]
+
+  @@index([tenantId])
+  @@index([parentId])
+  @@index([isActive])
+  @@index([order])
+}
+
+model TicketComment {
+  id          String   @id @default(cuid())
+  tenantId    String
+  ticketId    String
+  authorId    String
+  content     String
+  isInternal  Boolean  @default(false)
+  editedAt    DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant      Tenant          @relation("TicketCommentTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+  ticket      Ticket          @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author      User            @relation(fields: [authorId], references: [id])
+  attachments TicketAttachment[]
+
+  @@index([tenantId])
+  @@index([ticketId])
+  @@index([authorId])
+  @@index([createdAt])
+}

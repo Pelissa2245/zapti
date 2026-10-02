@@ -1,0 +1,51 @@
+- generic [active] [ref=f2e1]:
+  - main [ref=f2e3]:
+    - generic [ref=f2e4]:
+      - generic [ref=f2e6]:
+        - generic [ref=f2e7]:
+          - link "ZapTI - Página inicial" [ref=f2e8] [cursor=pointer]:
+            - /url: /
+            - generic [ref=f2e12]: ZapTI
+          - button "Alternar para tema escuro" [ref=f2e13] [cursor=pointer]
+        - heading "Entrar na sua conta" [level=3] [ref=f2e21]
+        - paragraph [ref=f2e22]: Digite suas credenciais para acessar o painel
+      - generic [ref=f2e24]:
+        - generic [ref=f2e25]:
+          - text: Email
+          - textbox "Email" [ref=f2e31]:
+            - /placeholder: seu@email.com
+            - text: matheus.test@zapti.app
+        - generic [ref=f2e32]:
+          - generic [ref=f2e33]:
+            - generic [ref=f2e34]: Senha
+            - link "Esqueceu a senha?" [ref=f2e35] [cursor=pointer]:
+              - /url: /auth/forgot-password
+          - generic [ref=f2e36]:
+            - textbox "Senha" [ref=f2e41]:
+              - /placeholder: ••••••••
+              - text: SenhaForte123!
+            - button "Mostrar senha" [ref=f2e42] [cursor=pointer]
+        - generic [ref=f2e47] [cursor=pointer]:
+          - checkbox "Lembrar-me" [ref=f2e48]
+          - generic [ref=f2e49]: Lembrar-me
+        - button "Entrar" [ref=f2e50] [cursor=pointer]
+        - generic [ref=f2e51]: ou continue com
+        - generic [ref=f2e56]:
+          - button "Entrar com Google" [ref=f2e57] [cursor=pointer]:
+            - generic [ref=f2e63]: Google
+          - button "Entrar com Microsoft" [ref=f2e64] [cursor=pointer]:
+            - generic [ref=f2e67]: Microsoft
+      - generic [ref=f2e68]:
+        - paragraph [ref=f2e69]:
+          - text: Não tem uma conta?
+          - button "Criar uma agora" [ref=f2e70] [cursor=pointer]
+        - paragraph [ref=f2e71]:
+          - text: Ao continuar, você concorda com nossos
+          - link "Termos de Serviço" [ref=f2e72] [cursor=pointer]:
+            - /url: /terms
+          - text: e
+          - link "Política de Privacidade" [ref=f2e73] [cursor=pointer]:
+            - /url: /privacy
+    - paragraph [ref=f2e74]: ZapTI v1.0.0 © 2024
+  - region "Notifications alt+T"
+  - alert [ref=f2e75]
