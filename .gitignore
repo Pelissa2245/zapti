@@ -43,8 +43,7 @@ coverage/
 # Turbo
 .turbo
 
-# Prisma
-prisma/migrations/
+# Prisma migrations are part of the deployable database schema and must be versioned.
 
 # Uploads
 uploads/
@@ -58,12 +57,7 @@ backups/
 tmp/
 temp/
 
-# Test files
-*.test.ts
-*.test.tsx
-*.spec.ts
-*.spec.tsx
-vitest.config.ts
+# Test files are intentionally versioned.
 
 # Playwright
 .playwright-mcp/

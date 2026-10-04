@@ -3,6 +3,15 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '@zapti/database';
 import { toJsonSchema } from '../../utils/zod-to-json-schema.js';
+import {
+  connectEvolutionInstance,
+  createEvolutionInstance,
+  extractEvolutionMessageId,
+  extractEvolutionQr,
+  EvolutionApiError,
+  logoutEvolutionInstance,
+  sendEvolutionMessage,
+} from '../../services/evolution.js';
 
 const createInstanceSchema = z.object({
   name: z.string().min(1).max(100),
@@ -142,6 +151,13 @@ export async function whatsappRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: { code: 'INSTANCE_LIMIT', message: `Limite de ${maxInstances} instâncias atingido` } });
     }
 
+    try {
+      await createEvolutionInstance(name, webhookUrl);
+    } catch (error) {
+      const status = error instanceof EvolutionApiError ? error.status : 502;
+      return reply.status(status).send({ error: { code: 'EVOLUTION_UNAVAILABLE', message: error instanceof Error ? error.message : 'Falha ao criar instância na Evolution API' } });
+    }
+
     const instance = await prisma.whatsAppInstance.create({
       data: {
         tenantId,
@@ -197,21 +213,26 @@ export async function whatsappRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: { code: 'ALREADY_CONNECTED', message: 'Instância já está conectada' } });
     }
 
-    // In production: call WhatsApp Business API to generate QR code
-    // For now, simulate QR code generation
-    const qrCode = `qr_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    let evolutionResponse: Record<string, unknown>;
+    try {
+      evolutionResponse = await connectEvolutionInstance(instance.name);
+    } catch (error) {
+      const status = error instanceof EvolutionApiError ? error.status : 502;
+      return reply.status(status).send({ error: { code: 'EVOLUTION_UNAVAILABLE', message: error instanceof Error ? error.message : 'Falha ao conectar à Evolution API' } });
+    }
+    const qrCode = extractEvolutionQr(evolutionResponse);
 
     await prisma.whatsAppInstance.update({
       where: { id },
       data: {
-        status: 'QR_CODE',
-        qrCode: qrCode,
+        status: qrCode ? 'QR_CODE' : 'CONNECTING',
+        qrCode: qrCode || null,
       },
     });
 
     await logAudit(request, 'WHATSAPP_INSTANCE_CONNECT', { instanceId: id });
 
-    return { qrCode, expiresAt: new Date(Date.now() + 5 * 60 * 1000) };
+    return { qrCode, evolution: evolutionResponse, expiresAt: qrCode ? new Date(Date.now() + 5 * 60 * 1000) : undefined };
   });
 
   // POST /whatsapp/instances/:id/disconnect - Disconnect instance
@@ -224,7 +245,12 @@ export async function whatsappRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Instância não encontrada' } });
     }
 
-    // In production: call WhatsApp Business API to disconnect
+    try {
+      await logoutEvolutionInstance(instance.name);
+    } catch (error) {
+      const status = error instanceof EvolutionApiError ? error.status : 502;
+      return reply.status(status).send({ error: { code: 'EVOLUTION_UNAVAILABLE', message: error instanceof Error ? error.message : 'Falha ao desconectar na Evolution API' } });
+    }
     await prisma.whatsAppInstance.update({
       where: { id },
       data: { status: 'DISCONNECTED', qrCode: null, phoneNumber: null },
@@ -329,8 +355,18 @@ export async function whatsappRoutes(app: FastifyInstance) {
       },
     });
 
-    // In production: send via WhatsApp Business API
-    // await sendWhatsAppMessage(instance, message);
+    let evolutionResponse: Record<string, unknown>;
+    try {
+      evolutionResponse = await sendEvolutionMessage(instance.name, { to, type, content, mediaUrl, mediaCaption });
+    } catch (error) {
+      const status = error instanceof EvolutionApiError ? error.status : 502;
+      return reply.status(status).send({ error: { code: 'EVOLUTION_SEND_FAILED', message: error instanceof Error ? error.message : 'Falha ao enviar mensagem pela Evolution API' } });
+    }
+    const externalId = extractEvolutionMessageId(evolutionResponse);
+    const sentMessage = await prisma.message.update({
+      where: { id: message.id },
+      data: { status: 'SENT', sentAt: new Date(), externalId },
+    });
 
     // Update conversation
     await prisma.conversation.update({
@@ -344,26 +380,33 @@ export async function whatsappRoutes(app: FastifyInstance) {
 
     await logAudit(request, 'WHATSAPP_MESSAGE_SENT', { instanceId: id, messageId: message.id, contactId: contact.id });
 
-    return reply.status(201).send({ message });
+    return reply.status(201).send({ message: sentMessage, evolution: evolutionResponse });
   });
 
   // POST /whatsapp/webhook - Webhook endpoint for WhatsApp
   app.post('/webhook', { config: { rateLimit: { max: 100, timeWindow: 60 * 1000 } } }, async (request, reply) => {
-    // Verify webhook signature if configured
-    const tenantId = request.headers['x-tenant-id'] as string;
-    const instanceId = request.headers['x-instance-id'] as string;
-
-    if (!tenantId || !instanceId) {
-      return reply.status(400).send({ error: { code: 'MISSING_HEADERS', message: 'Headers x-tenant-id e x-instance-id obrigatórios' } });
+    const configuredApiKey = process.env.EVOLUTION_API_KEY;
+    const receivedApiKey = request.headers.apikey || request.headers['x-api-key'];
+    if (!configuredApiKey || receivedApiKey !== configuredApiKey) {
+      return reply.status(401).send({ error: { code: 'INVALID_WEBHOOK_AUTH', message: 'Webhook da Evolution API não autenticado' } });
     }
-
-    const instance = await prisma.whatsAppInstance.findFirst({ where: { id: instanceId, tenantId } });
+    const body = request.body as Record<string, unknown>;
+    const tenantId = request.headers['x-tenant-id'] as string | undefined;
+    const instanceId = request.headers['x-instance-id'] as string | undefined;
+    const evolutionInstanceName = typeof body.instance === 'string' ? body.instance : undefined;
+    const instance = await prisma.whatsAppInstance.findFirst({
+      where: instanceId && tenantId
+        ? { id: instanceId, tenantId }
+        : evolutionInstanceName
+          ? { name: evolutionInstanceName }
+          : { id: '__missing_instance__' },
+    });
     if (!instance) {
       return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Instância não encontrada' } });
     }
 
     // Process webhook payload
-    await processWebhook(instance, request.body, app);
+    await processWebhook(instance, body, app);
 
     return { received: true };
   });
@@ -419,8 +462,26 @@ export async function whatsappRoutes(app: FastifyInstance) {
 }
 
 async function processWebhook(instance: any, payload: any, app: FastifyInstance) {
-  // Process WhatsApp Business API webhook
-  // This is a simplified version - production would handle all event types
+  // Evolution API sends { event, instance, data }, while legacy Meta payloads use entry[].
+  if (payload?.data?.key && payload?.data?.message) {
+    const key = payload.data.key;
+    const source = payload.data.message;
+    if (key.fromMe) return;
+    const remoteJid = typeof key.remoteJid === 'string' ? key.remoteJid : '';
+    const normalized = {
+      id: key.id,
+      from: remoteJid.split('@')[0],
+      type: source.conversation ? 'text' : source.extendedTextMessage ? 'text' : Object.keys(source)[0]?.replace(/Message$/, '').toLowerCase() || 'text',
+      text: { body: source.conversation || source.extendedTextMessage?.text || '' },
+      image: source.imageMessage ? { caption: source.imageMessage.caption, id: source.imageMessage.url, mime_type: source.imageMessage.mimetype } : undefined,
+      video: source.videoMessage ? { caption: source.videoMessage.caption, id: source.videoMessage.url, mime_type: source.videoMessage.mimetype } : undefined,
+      document: source.documentMessage ? { caption: source.documentMessage.caption, id: source.documentMessage.url, mime_type: source.documentMessage.mimetype } : undefined,
+      audio: source.audioMessage ? { caption: '', id: source.audioMessage.url, mime_type: source.audioMessage.mimetype } : undefined,
+      sticker: source.stickerMessage ? { id: source.stickerMessage.url } : undefined,
+    };
+    await handleIncomingMessage(instance, { contacts: [{ profile: { name: payload.data.pushName } }] }, normalized, app);
+    return;
+  }
 
   const { entry } = payload;
   if (!entry || !Array.isArray(entry)) return;

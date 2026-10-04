@@ -141,7 +141,7 @@ export async function tenantRoutes(app: FastifyInstance) {
 
     // Generate slug from tenant name
     const generateSlug = (name: string) => {
-      let slug = name
+      const slug = name
         .toLowerCase()
         .normalize('NFD')
         .replace(/[̀-ͯ]/g, '')
@@ -152,7 +152,7 @@ export async function tenantRoutes(app: FastifyInstance) {
       return slug.substring(0, 50);
     };
 
-    let baseSlug = generateSlug(name);
+    const baseSlug = generateSlug(name);
     let slug = baseSlug;
     let counter = 1;
 
@@ -163,12 +163,10 @@ export async function tenantRoutes(app: FastifyInstance) {
     }
 
     // Create owner user
-    let owner;
     const { hashPassword, generateSecureToken } = await import('@zapti/shared/auth');
     const password = ownerPassword || generateSecureToken(16);
     const passwordHash = await hashPassword(password);
-
-    owner = await prisma.user.create({
+    const owner = await prisma.user.create({
       data: { name: ownerName, email: ownerEmail.toLowerCase(), passwordHash },
     });
 

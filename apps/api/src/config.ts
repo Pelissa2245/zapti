@@ -41,7 +41,8 @@ export const config = {
   // WhatsApp
   whatsapp: {
     webhookSecret: process.env.WHATSAPP_WEBHOOK_SECRET || '',
-    apiUrl: process.env.WHATSAPP_API_URL || 'https://graph.facebook.com/v18.0',
+    evolutionApiUrl: process.env.EVOLUTION_API_URL || '',
+    evolutionApiKey: process.env.EVOLUTION_API_KEY || '',
   },
 
   // Storage (S3 compatible)

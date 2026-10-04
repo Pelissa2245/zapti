@@ -10,7 +10,6 @@ import { ticketRoutes } from './tickets/index.js';
 import { flowRoutes } from './flows/index.js';
 import { automationRoutes } from './automations/index.js';
 import { auditRoutes } from './audit/index.js';
-import { backupRoutes } from './backups/index.js';
 
 export async function registerRoutes(app: FastifyInstance) {
   // API v1 prefix
@@ -25,6 +24,5 @@ export async function registerRoutes(app: FastifyInstance) {
     api.register(flowRoutes, { prefix: '/flows' });
     api.register(automationRoutes, { prefix: '/automations' });
     api.register(auditRoutes, { prefix: '/audit' });
-    api.register(backupRoutes, { prefix: '/backups' });
   }, { prefix: '/api/v1' });
 }

@@ -137,7 +137,9 @@ export async function contactRoutes(app: FastifyInstance) {
       try {
         const tags = JSON.parse(c.tags || '[]');
         tags.forEach((tag: string) => tagCount.set(tag, (tagCount.get(tag) || 0) + 1));
-      } catch {}
+      } catch {
+        // Ignore malformed legacy tag JSON and continue with valid contacts.
+      }
     });
 
     return { tags: Array.from(tagCount.entries()).map(([tag, count]) => ({ tag, count })).sort((a, b) => b.count - a.count) };

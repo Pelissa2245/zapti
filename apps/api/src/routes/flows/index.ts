@@ -567,31 +567,33 @@ async function executeFlowAsync(flow: { id: string; name: string; tenantId: stri
           nextNodeId = getNextNode(currentNodeId, edgeMap, executionVariables);
           break;
 
-        case 'CONDITION':
+        case 'CONDITION': {
           const conditionResult = evaluateCondition(node.data.config, executionVariables);
           nextNodeId = getNextNode(currentNodeId, edgeMap, executionVariables, conditionResult);
           nodeOutput = { conditionResult };
           break;
+        }
 
         case 'ACTION':
           nodeOutput = await executeAction(node.data.config, executionVariables, tenantId, app);
           nextNodeId = getNextNode(currentNodeId, edgeMap, executionVariables);
           break;
 
-        case 'DELAY':
+        case 'DELAY': {
           const delayMs = node.data.config.ms || node.data.config.seconds * 1000 || node.data.config.minutes * 60000 || 0;
           if (delayMs > 0) {
             await new Promise((resolve) => setTimeout(resolve, delayMs));
           }
           nextNodeId = getNextNode(currentNodeId, edgeMap, executionVariables);
           break;
+        }
 
         case 'WEBHOOK':
           nodeOutput = await executeWebhook(node.data.config, executionVariables);
           nextNodeId = getNextNode(currentNodeId, edgeMap, executionVariables);
           break;
 
-        case 'SPLIT':
+        case 'SPLIT': {
           // Execute all branches in parallel
           const branches = edgeMap.get(currentNodeId) || [];
           for (const branch of branches) {
@@ -600,6 +602,7 @@ async function executeFlowAsync(flow: { id: string; name: string; tenantId: stri
           // Continue with first branch
           nextNodeId = branches[0]?.target || null;
           break;
+        }
 
         case 'MERGE':
           nextNodeId = getNextNode(currentNodeId, edgeMap, executionVariables);
@@ -656,22 +659,24 @@ async function executeBranch(nodeId: string, nodeMap: Map<string, { id: string; 
     let nodeOutput: any = {};
 
     switch (node.type) {
-      case 'CONDITION':
+      case 'CONDITION': {
         const conditionResult = evaluateCondition(node.data.config, localVariables);
         nextNodeId = getNextNode(currentNodeId, edgeMap, localVariables, conditionResult);
         nodeOutput = { conditionResult };
         break;
+      }
 
       case 'ACTION':
         nodeOutput = await executeAction(node.data.config, localVariables, nodeMap.get(currentNodeId)?.data?.tenantId || '', app);
         nextNodeId = getNextNode(currentNodeId, edgeMap, localVariables);
         break;
 
-      case 'DELAY':
+      case 'DELAY': {
         const delayMs = node.data.config.ms || node.data.config.seconds * 1000 || node.data.config.minutes * 60000 || 0;
         if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
         nextNodeId = getNextNode(currentNodeId, edgeMap, localVariables);
         break;
+      }
 
       case 'WEBHOOK':
         nodeOutput = await executeWebhook(node.data.config, localVariables);

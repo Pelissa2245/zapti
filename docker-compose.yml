@@ -67,6 +67,8 @@ services:
       - SMTP_PASS=${SMTP_PASS}
       - EMAIL_FROM=${EMAIL_FROM}
       - WEBHOOK_SECRET=${WEBHOOK_SECRET}
+      - EVOLUTION_API_URL=${EVOLUTION_API_URL}
+      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY}
       - UPLOAD_DIR=/data/zapti/media
       - MAX_FILE_SIZE=${MAX_FILE_SIZE:-52428800}
       - BACKUP_DIR=/data/zapti/backups
