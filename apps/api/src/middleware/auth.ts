@@ -77,6 +77,7 @@ export async function setupAuth(app: FastifyInstance) {
       '/api/v1/auth/2fa/setup',
       '/api/v1/auth/bootstrap-status',
       '/api/v1/auth/bootstrap',
+      '/api/v1/auth/check-slug',
       '/api/v1/whatsapp/webhook',
     ];
 
@@ -94,6 +95,7 @@ export async function setupAuth(app: FastifyInstance) {
       '/auth/2fa/setup',
       '/auth/bootstrap-status',
       '/auth/bootstrap',
+      '/auth/check-slug',
       '/whatsapp/webhook',
     ];
 

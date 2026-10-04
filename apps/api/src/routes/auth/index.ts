@@ -60,6 +60,7 @@ const verify2FASchemaJson = toJsonSchema(verify2FASchema);
 // Bootstrap schemas (first admin creation)
 const bootstrapStatusSchema = z.object({
   needsBootstrap: z.boolean(),
+  initialized: z.boolean(),
 });
 
 const bootstrapStatusSchemaJson = toJsonSchema(bootstrapStatusSchema);
@@ -96,6 +97,13 @@ const bootstrapSchema = z.object({
   password: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres').max(128),
   confirmPassword: z.string(),
   tenantName: z.string().min(2, 'Nome da empresa deve ter pelo menos 2 caracteres').max(100),
+  tenantFantasyName: z.string().max(100).optional(),
+  tenantSlug: z.string().min(2, 'Slug deve ter pelo menos 2 caracteres').max(50).regex(/^[a-z0-9-]+$/, 'Slug deve conter apenas letras minúsculas, números e hífens'),
+  tenantTimezone: z.string().min(2, 'Selecione um fuso horário').default('America/Sao_Paulo'),
+  tenantCountry: z.string().min(2, 'Selecione um país').default('BR'),
+  tenantCurrency: z.string().min(3, 'Selecione uma moeda').default('BRL'),
+  tenantLogoUrl: z.string().url('URL inválida').optional().or(z.literal('')),
+  bootstrapToken: z.string().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'As senhas não conferem',
   path: ['confirmPassword'],
@@ -213,9 +221,10 @@ export async function authRoutes(app: FastifyInstance) {
   app.get('/bootstrap-status', {
     schema: { response: { 200: bootstrapStatusSchemaJson } },
     config: { rateLimit: { max: 10, timeWindow: 60 * 1000 } },
-  }, async (request, reply) => {
+  }, async () => {
     const userCount = await prisma.user.count();
-    return { needsBootstrap: userCount === 0 };
+    const needsBootstrap = userCount === 0;
+    return { needsBootstrap, initialized: !needsBootstrap };
   });
 
   // POST /auth/bootstrap - Create first admin (only works when no users exist)
@@ -223,13 +232,35 @@ export async function authRoutes(app: FastifyInstance) {
     schema: { body: bootstrapSchemaJson, response: { 200: bootstrapResponseSchemaJson } },
     config: { rateLimit: { max: 3, timeWindow: 60 * 1000 } },
   }, async (request, reply) => {
+    // BOOTSTRAP_TOKEN validation
+    const bootstrapToken = process.env.BOOTSTRAP_TOKEN;
+    if (bootstrapToken) {
+      const providedToken = request.headers['x-bootstrap-token'] as string || (request.body as any)?.bootstrapToken;
+      if (!providedToken || providedToken !== bootstrapToken) {
+        return reply.status(403).send({ error: { code: 'BOOTSTRAP_TOKEN_INVALID', message: 'Token de bootstrap inválido ou ausente' } });
+      }
+    }
+
     // Check if bootstrap is still allowed (no users exist)
     const userCount = await prisma.user.count();
     if (userCount > 0) {
-      return reply.status(403).send({ error: { code: 'BOOTSTRAP_NOT_ALLOWED', message: 'Bootstrap não permitido: já existem usuários cadastrados' } });
+      return reply.status(409).send({ error: { code: 'BOOTSTRAP_NOT_ALLOWED', message: 'Bootstrap não permitido: já existem usuários cadastrados' } });
     }
 
-    const { name, email, password, tenantName } = request.body as z.infer<typeof bootstrapSchema>;
+    const {
+      name,
+      email,
+      password,
+      confirmPassword,
+      tenantName,
+      tenantFantasyName,
+      tenantSlug,
+      tenantTimezone,
+      tenantCountry,
+      tenantCurrency,
+      tenantLogoUrl,
+      bootstrapToken: _bootstrapToken, // eslint-disable-line @typescript-eslint/no-unused-vars
+    } = request.body as z.infer<typeof bootstrapSchema>;
     const ip = request.ip;
     const userAgent = request.headers['user-agent'] || '';
 
@@ -237,8 +268,11 @@ export async function authRoutes(app: FastifyInstance) {
     const { hashPassword } = await import('@zapti/shared/auth');
     const passwordHash = await hashPassword(password);
 
-    // Use transaction to ensure atomicity
+    // Use transaction with advisory lock to ensure atomicity under concurrency
     const result = await prisma.$transaction(async (tx) => {
+      // Acquire advisory lock to serialize bootstrap attempts
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock('zapti_bootstrap'::regclass)`;
+
       // Double-check inside transaction
       const count = await tx.user.count();
       if (count > 0) {
@@ -246,7 +280,7 @@ export async function authRoutes(app: FastifyInstance) {
       }
 
       // Create tenant
-      const slug = tenantName
+      const slug = tenantSlug || tenantName
         .toLowerCase()
         .normalize('NFD')
         .replace(/[̀-ͯ]/g, '')
@@ -271,9 +305,9 @@ export async function authRoutes(app: FastifyInstance) {
           name,
           passwordHash,
           isSuperadmin: true,
-          onboardingCompleted: false,
+          onboardingCompleted: true, // Wizard completes onboarding in one go
           language: 'pt-BR',
-          timezone: 'America/Sao_Paulo',
+          timezone: tenantTimezone || 'America/Sao_Paulo',
         },
       });
 
@@ -282,7 +316,13 @@ export async function authRoutes(app: FastifyInstance) {
         data: {
           name: tenantName,
           slug: finalSlug,
-          settings: JSON.stringify({}),
+          settings: JSON.stringify({
+            fantasyName: tenantFantasyName,
+            timezone: tenantTimezone || 'America/Sao_Paulo',
+            country: tenantCountry || 'BR',
+            currency: tenantCurrency || 'BRL',
+            logoUrl: tenantLogoUrl || '',
+          }),
           ownerId: user.id,
         },
       });
@@ -498,13 +538,32 @@ app.post('/refresh', { schema: { body: refreshSchemaJson } }, async (request, re
     return { onboardingCompleted: user.onboardingCompleted };
   });
 
+  // GET /auth/check-slug - Check if slug is available (public endpoint for onboarding)
+  app.get('/check-slug', async (request, reply) => {
+    const { slug } = request.query as { slug: string };
+    if (!slug || slug.length < 2) {
+      return { available: false, message: 'Slug deve ter pelo menos 2 caracteres' };
+    }
+    const existing = await prisma.tenant.findUnique({ where: { slug } });
+    if (existing) {
+      return { available: false, message: 'Este slug já está em uso' };
+    }
+    return { available: true, message: 'Slug disponível' };
+  });
+
   const completeOnboardingSchema = z.object({
   language: z.string().optional(),
   timezone: z.string().optional(),
+  theme: z.enum(['light', 'dark', 'system']).optional(),
   notificationPreferences: z.object({
     email: z.boolean().optional(),
     push: z.boolean().optional(),
     whatsapp: z.boolean().optional(),
+  }).optional(),
+  whatsappConfig: z.object({
+    evolutionApiUrl: z.string().url().optional(),
+    evolutionApiKey: z.string().optional(),
+    instanceName: z.string().optional(),
   }).optional(),
 }).strict();
 
@@ -515,20 +574,50 @@ const completeOnboardingSchemaJson = toJsonSchema(completeOnboardingSchema);
     schema: { body: completeOnboardingSchemaJson },
   }, async (request, reply) => {
     const user = request.user!;
-    const { language, timezone, notificationPreferences } = request.body as {
+    const { language, timezone, theme, notificationPreferences, whatsappConfig } = request.body as {
       language?: string;
       timezone?: string;
+      theme?: 'light' | 'dark' | 'system';
       notificationPreferences?: { email?: boolean; push?: boolean; whatsapp?: boolean };
+      whatsappConfig?: { evolutionApiUrl?: string; evolutionApiKey?: string; instanceName?: string };
     };
+
+    const updateData: any = {
+      onboardingCompleted: true,
+      language: language || 'pt-BR',
+      timezone: timezone || 'America/Sao_Paulo',
+    };
+
+    if (theme) {
+      updateData.theme = theme;
+    }
+
+    if (notificationPreferences) {
+      updateData.notificationPreferences = notificationPreferences;
+    }
 
     await prisma.user.update({
       where: { id: user.id },
-      data: {
-        onboardingCompleted: true,
-        language: language || 'pt-BR',
-        timezone: timezone || 'America/Sao_Paulo',
-      },
+      data: updateData,
     });
+
+    // Store WhatsApp config in tenant settings if provided
+    if (whatsappConfig?.evolutionApiUrl && whatsappConfig?.evolutionApiKey && whatsappConfig?.instanceName && request.tenant) {
+      const currentSettings = request.tenant.settings as Record<string, any> || {};
+      await prisma.tenant.update({
+        where: { id: request.tenant.id },
+        data: {
+          settings: JSON.stringify({
+            ...currentSettings,
+            whatsapp: {
+              evolutionApiUrl: whatsappConfig.evolutionApiUrl,
+              evolutionApiKey: whatsappConfig.evolutionApiKey,
+              instanceName: whatsappConfig.instanceName,
+            },
+          }),
+        },
+      });
+    }
 
     await logAuthAttempt(request, 'ONBOARDING_COMPLETED', { userId: user.id });
 

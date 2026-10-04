@@ -16,6 +16,149 @@ A rota de backups não está registrada na API porque a referência anterior nã
 
 O estado auditado foi sincronizado no branch `master` do GitHub no commit `ee408cf`. O próximo agente deve começar por `git status`, `git log -3`, `CLAUDE.md` e `docs/PROGRESSO.md`.
 
+---
+
+## Contrato de API — Bootstrap Inicial (Onboarding)
+
+### Decisão: 2026-10-04
+
+**Problema:** Existiam dois fluxos de onboarding conflitantes:
+1. `/auth/onboarding/wizard` — wizard de 5 passos (admin + tenant + preferências + WhatsApp)
+2. `/auth/bootstrap` — formulário único simples (admin + tenant)
+
+**Solução:** Unificar no fluxo `/auth/onboarding/wizard` (5 passos) como fluxo oficial de bootstrap. O endpoint `/auth/bootstrap` será mantido como API atômica para o wizard chamar no passo final. A página `/auth/bootstrap` será removida.
+
+### Endpoints Públicos
+
+#### `GET /api/v1/auth/bootstrap-status`
+- **Descrição:** Verifica se bootstrap é necessário (banco vazio)
+- **Autenticação:** Nenhuma (público)
+- **Cache:** `no-store` (header `Cache-Control: no-store`)
+- **Rate limit:** 10 req/min
+- **Resposta 200:**
+```json
+{
+  "needsBootstrap": true,
+  "initialized": false
+}
+```
+- **Campos:**
+  - `needsBootstrap`: `true` se `User.count() === 0`
+  - `initialized`: inverso de `needsBootstrap`
+
+#### `POST /api/v1/auth/bootstrap`
+- **Descrição:** Cria primeiro admin + tenant + UserTenant(OWNER) + sessão em transação atômica
+- **Autenticação:** Nenhuma (público, mas só funciona com 0 usuários)
+- **Rate limit:** 3 req/min
+- **Proteção anti-race:** `pg_advisory_xact_lock('zapti_bootstrap')` dentro da transação
+- **Proteção BOOTSTRAP_TOKEN:** Se variável `BOOTSTRAP_TOKEN` estiver definida, exige header `X-Bootstrap-Token` ou campo `bootstrapToken` no body
+- **Body:**
+```json
+{
+  "name": "string (2-100)",
+  "email": "string (email válido, normalizado para lowercase)",
+  "password": "string (8-128)",
+  "confirmPassword": "string",
+  "tenantName": "string (2-100)",
+  "tenantFantasyName": "string (opcional, max 100)",
+  "tenantSlug": "string (2-50, regex ^[a-z0-9-]+$, auto-gerado se omitido)",
+  "tenantTimezone": "string (default: America/Sao_Paulo)",
+  "tenantCountry": "string (default: BR)",
+  "tenantCurrency": "string (default: BRL)",
+  "tenantLogoUrl": "string (URL válida, opcional)",
+  "bootstrapToken": "string (opcional, obrigatório se BOOTSTRAP_TOKEN definido)"
+}
+```
+- **Validações server-side:**
+  - Email único (case-insensitive)
+  - Senha = confirmPassword
+  - Slug único (com sufixo numérico se colidir)
+  - Política de senha: min 8 chars
+- **Resposta 201:**
+```json
+{
+  "user": { "id", "name", "email", "avatarUrl", "isSuperadmin", "onboardingCompleted" },
+  "tenant": { "id", "name", "slug", "plan" },
+  "session": { "id", "expiresAt" },
+  "accessToken": "string",
+  "refreshToken": "string",
+  "requiresTwoFactor": false
+}
+```
+- **Cookies:** `accessToken` (httpOnly, secure em prod, sameSite=lax, 30d) + `refreshToken` (mesmo, 30d)
+- **Erros:**
+  - `400` — Validação falhou
+  - `409` — `BOOTSTRAP_NOT_ALLOWED` (já existem usuários)
+  - `429` — Rate limit excedido
+  - `403` — `BOOTSTRAP_TOKEN_INVALID` (token inválido/ausente quando exigido)
+  - `500` — Erro interno
+
+#### `GET /api/v1/auth/onboarding-status`
+- **Descrição:** Verifica se usuário logado completou onboarding de preferências
+- **Autenticação:** Obrigatória (sessão válida)
+- **Resposta 200:** `{ "onboardingCompleted": boolean }`
+
+#### `POST /api/v1/auth/complete-onboarding`
+- **Descrição:** Completa preferências do usuário (idioma, tema, notificações, WhatsApp)
+- **Autenticação:** Obrigatória (sessão válida)
+- **Body:**
+```json
+{
+  "language": "string (pt-BR/en-US/es-ES)",
+  "timezone": "string (IANA timezone)",
+  "theme": "light|dark|system",
+  "notificationPreferences": { "email": boolean, "push": boolean, "whatsapp": boolean },
+  "whatsappConfig": { "evolutionApiUrl": string, "evolutionApiKey": string, "instanceName": string }
+}
+```
+- **Resposta 200:** `{ "onboardingCompleted": true }`
+
+### Frontend Routes
+
+| Rota | Descrição | Acesso |
+|------|-----------|--------|
+| `/` | Root — redireciona para onboarding ou login/dashboard | Público |
+| `/auth/onboarding/wizard` | Wizard 5 passos (bootstrap) | Público (só se `needsBootstrap=true`) |
+| `/auth/login` | Login | Público (só se `needsBootstrap=false`) |
+| `/auth/onboarding` | Preferências pós-login (setup) | Autenticado |
+| `/setup` | Alias para `/auth/onboarding` (opcional) | Autenticado |
+
+### Middleware Behavior (Next.js)
+
+1. **Root `/`**: Consulta `bootstrap-status` com `cache: 'no-store'` e timeout 3s
+   - `needsBootstrap=true` → redirect `/auth/onboarding/wizard`
+   - `needsBootstrap=false` → redirect `/auth/login` (ou dashboard se sessão válida)
+
+2. **`/auth/onboarding/wizard`**: 
+   - `needsBootstrap=true` → allow
+   - `needsBootstrap=false` → redirect `/auth/login`
+
+3. **`/auth/login`**:
+   - `needsBootstrap=true` → redirect `/auth/onboarding/wizard`
+   - `needsBootstrap=false` → allow
+
+4. **Falha na API `bootstrap-status`**: NÃO assume valor padrão. Mostra tela de erro "Não foi possível verificar status do sistema. Tentar novamente."
+
+5. **Exceções públicas explícitas**:
+   - `/auth/onboarding/wizard`
+   - `/auth/login`
+   - `/api/v1/auth/bootstrap-status`
+   - `/api/v1/auth/bootstrap` (só enquanto não inicializado)
+
+### Concorrência
+
+- Estratégia: `pg_advisory_xact_lock('zapti_bootstrap')` adquirido no início da transação
+- Garante serialização: apenas 1 transação por vez pode executar o bootstrap
+- Segunda requisição concorrente aguarda o lock, re-verifica contagem, falha com 409
+
+### Segurança
+
+- **BOOTSTRAP_TOKEN**: Variável de ambiente opcional. Se definida, bootstrap exige token via header `X-Bootstrap-Token` ou campo `bootstrapToken`. Documentado em `.env.example`.
+- **Rate limit**: 3 req/min no bootstrap, 10 req/min no status
+- **Senha**: Argon2id via bcrypt (cost 12). Nunca retornada em respostas. Nunca logada.
+- **Tokens**: Access (15m/30d) + Refresh (7d/30d) com rotação. Refresh token armazenado como hash (SHA-256).
+- **Cookies**: httpOnly, secure (produção), sameSite=lax, path=/
+
 ## Stack Escolhida (Fase 1)
 
 | Camada | Tecnologia | Justificativa |

@@ -8,8 +8,7 @@ const publicPaths = [
   '/auth/forgot-password',
   '/auth/reset-password',
   '/auth/verify-email',
-  '/auth/bootstrap',  // Bootstrap page for first admin
-  '/auth/onboarding', // Onboarding page - accessible when database is empty
+  '/auth/onboarding/wizard', // Onboarding wizard - accessible when database is empty
   '/terms',
   '/privacy',
 ];
@@ -22,6 +21,7 @@ const publicApiPaths = [
   '/api/auth/me',
   '/api/auth/bootstrap-status',
   '/api/auth/bootstrap',
+  '/api/v1/auth/check-slug',
 ];
 
 function isPublicPath(pathname: string): boolean {
@@ -33,24 +33,32 @@ function isPublicApiPath(pathname: string): boolean {
 }
 
 // Check if bootstrap is needed by calling the backend API
-async function checkBootstrapNeeded(): Promise<boolean> {
+// Returns: { needsBootstrap: boolean, error?: string }
+// If error is set, the API call failed and we should show an error page
+async function checkBootstrapNeeded(): Promise<{ needsBootstrap: boolean; error?: string }> {
   try {
     // In Docker, use internal network; locally, use localhost
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout
+
     const response = await fetch(`${apiUrl}/auth/bootstrap-status`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       cache: 'no-store',
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
+
     if (response.ok) {
       const data = await response.json();
-      return data.needsBootstrap === true;
+      return { needsBootstrap: data.needsBootstrap === true };
     }
+    return { needsBootstrap: false, error: `API returned ${response.status}` };
   } catch (error) {
     console.error('Bootstrap status check failed:', error);
+    return { needsBootstrap: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
-  // Default to false (no bootstrap needed) if check fails
-  return false;
 }
 
 export async function middleware(request: NextRequest) {
@@ -63,23 +71,26 @@ export async function middleware(request: NextRequest) {
 
   // Public pages: always accessible (but with bootstrap check for login/onboarding)
   if (isPublicPath(pathname)) {
-    // Special handling for /auth/onboarding and /auth/login - check if bootstrap is needed
-    if (pathname === '/auth/onboarding' || pathname === '/auth/login') {
-      const needsBootstrap = await checkBootstrapNeeded();
+    // Special handling for /auth/onboarding/wizard and /auth/login - check if bootstrap is needed
+    if (pathname === '/auth/onboarding/wizard' || pathname === '/auth/login') {
+      const { needsBootstrap, error } = await checkBootstrapNeeded();
+      if (error) {
+        return NextResponse.redirect(new URL('/error?code=bootstrap_check_failed', request.url));
+      }
       if (needsBootstrap) {
         // Database is empty
-        if (pathname === '/auth/onboarding') {
-          // Allow access to onboarding
+        if (pathname === '/auth/onboarding/wizard') {
+          // Allow access to onboarding wizard
           return NextResponse.next();
         }
-        // Redirect login to onboarding
-        return NextResponse.redirect(new URL('/auth/onboarding', request.url));
+        // Redirect login to onboarding wizard
+        return NextResponse.redirect(new URL('/auth/onboarding/wizard', request.url));
       } else {
         // Database has users
-        if (pathname === '/auth/onboarding') {
-          // Redirect onboarding to login
+        if (pathname === '/auth/onboarding/wizard') {
+          // Redirect onboarding wizard to login
           const loginUrl = new URL('/auth/login', request.url);
-          loginUrl.searchParams.set('callbackUrl', '/auth/onboarding');
+          loginUrl.searchParams.set('callbackUrl', '/auth/onboarding/wizard');
           return NextResponse.redirect(loginUrl);
         }
         // Allow access to login
@@ -91,9 +102,13 @@ export async function middleware(request: NextRequest) {
 
   // Root: check bootstrap status first, then redirect appropriately
   if (pathname === '/') {
-    const needsBootstrap = await checkBootstrapNeeded();
+    const { needsBootstrap, error } = await checkBootstrapNeeded();
+    if (error) {
+      // Show error page when API check fails
+      return NextResponse.redirect(new URL('/error?code=bootstrap_check_failed', request.url));
+    }
     if (needsBootstrap) {
-      return NextResponse.redirect(new URL('/auth/onboarding', request.url));
+      return NextResponse.redirect(new URL('/auth/onboarding/wizard', request.url));
     }
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
@@ -105,7 +120,7 @@ export async function middleware(request: NextRequest) {
   // No tokens at all — protect everything
   if (!accessToken && !refreshToken) {
     // Check bootstrap status for protected pages
-    const needsBootstrap = await checkBootstrapNeeded();
+    const { needsBootstrap, error } = await checkBootstrapNeeded();
     // API routes get 401 JSON
     if (pathname.startsWith('/api/')) {
       return NextResponse.json(
@@ -113,9 +128,12 @@ export async function middleware(request: NextRequest) {
         { status: 401 }
       );
     }
-    // If database is empty, redirect to onboarding; otherwise redirect to login
+    // If database is empty, redirect to onboarding wizard; otherwise redirect to login
+    if (error) {
+      return NextResponse.redirect(new URL('/error?code=bootstrap_check_failed', request.url));
+    }
     if (needsBootstrap) {
-      return NextResponse.redirect(new URL('/auth/onboarding', request.url));
+      return NextResponse.redirect(new URL('/auth/onboarding/wizard', request.url));
     }
     const loginUrl = new URL('/auth/login', request.url);
     loginUrl.searchParams.set('callbackUrl', pathname);
