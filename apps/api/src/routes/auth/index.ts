@@ -270,8 +270,8 @@ export async function authRoutes(app: FastifyInstance) {
 
     // Use transaction with advisory lock to ensure atomicity under concurrency
     const result = await prisma.$transaction(async (tx) => {
-      // Acquire advisory lock to serialize bootstrap attempts
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock('zapti_bootstrap'::regclass)`;
+      // Acquire advisory lock to serialize bootstrap attempts (using numeric ID 123456789)
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(123456789)`;
 
       // Double-check inside transaction
       const count = await tx.user.count();

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { AlertCircle, RefreshCw, WifiOff, Loader2 } from 'lucide-react';
 
-export default function BootstrapErrorPage() {
+function BootstrapErrorPageContent() {
   const searchParams = useSearchParams();
   const errorCode = searchParams.get('code');
   const [isRetrying, setIsRetrying] = React.useState(false);
@@ -82,5 +82,13 @@ export default function BootstrapErrorPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function BootstrapErrorPage() {
+  return (
+    <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-slate-400" /></div>}>
+      <BootstrapErrorPageContent />
+    </React.Suspense>
   );
 }

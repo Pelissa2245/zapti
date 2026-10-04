@@ -9,6 +9,7 @@ const publicPaths = [
   '/auth/reset-password',
   '/auth/verify-email',
   '/auth/onboarding/wizard', // Onboarding wizard - accessible when database is empty
+  '/error', // Error page - must be accessible even when API is down
   '/terms',
   '/privacy',
 ];
