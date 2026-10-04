@@ -8,6 +8,10 @@ const publicPaths = [
   '/auth/forgot-password',
   '/auth/reset-password',
   '/auth/verify-email',
+  '/auth/bootstrap',  // Bootstrap page for first admin
+  '/auth/onboarding', // Onboarding page - accessible when database is empty
+  '/terms',
+  '/privacy',
 ];
 
 // API paths that handle their own auth state (return 401, not redirect)
@@ -16,6 +20,8 @@ const publicApiPaths = [
   '/api/auth/logout',
   '/api/auth/refresh',
   '/api/auth/me',
+  '/api/auth/bootstrap-status',
+  '/api/auth/bootstrap',
 ];
 
 function isPublicPath(pathname: string): boolean {
@@ -26,6 +32,27 @@ function isPublicApiPath(pathname: string): boolean {
   return publicApiPaths.some(path => pathname === path || pathname.startsWith(path + '/'));
 }
 
+// Check if bootstrap is needed by calling the backend API
+async function checkBootstrapNeeded(): Promise<boolean> {
+  try {
+    // In Docker, use internal network; locally, use localhost
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+    const response = await fetch(`${apiUrl}/auth/bootstrap-status`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+    });
+    if (response.ok) {
+      const data = await response.json();
+      return data.needsBootstrap === true;
+    }
+  } catch (error) {
+    console.error('Bootstrap status check failed:', error);
+  }
+  // Default to false (no bootstrap needed) if check fails
+  return false;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -34,13 +61,40 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Public pages: always accessible
+  // Public pages: always accessible (but with bootstrap check for login/onboarding)
   if (isPublicPath(pathname)) {
+    // Special handling for /auth/onboarding and /auth/login - check if bootstrap is needed
+    if (pathname === '/auth/onboarding' || pathname === '/auth/login') {
+      const needsBootstrap = await checkBootstrapNeeded();
+      if (needsBootstrap) {
+        // Database is empty
+        if (pathname === '/auth/onboarding') {
+          // Allow access to onboarding
+          return NextResponse.next();
+        }
+        // Redirect login to onboarding
+        return NextResponse.redirect(new URL('/auth/onboarding', request.url));
+      } else {
+        // Database has users
+        if (pathname === '/auth/onboarding') {
+          // Redirect onboarding to login
+          const loginUrl = new URL('/auth/login', request.url);
+          loginUrl.searchParams.set('callbackUrl', '/auth/onboarding');
+          return NextResponse.redirect(loginUrl);
+        }
+        // Allow access to login
+        return NextResponse.next();
+      }
+    }
     return NextResponse.next();
   }
 
-  // Root: redirect to dashboard (protected — auth check happens there via redirect below)
+  // Root: check bootstrap status first, then redirect appropriately
   if (pathname === '/') {
+    const needsBootstrap = await checkBootstrapNeeded();
+    if (needsBootstrap) {
+      return NextResponse.redirect(new URL('/auth/onboarding', request.url));
+    }
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
@@ -50,12 +104,18 @@ export async function middleware(request: NextRequest) {
 
   // No tokens at all — protect everything
   if (!accessToken && !refreshToken) {
-    // API routes get 401 JSON, pages get redirect to login
+    // Check bootstrap status for protected pages
+    const needsBootstrap = await checkBootstrapNeeded();
+    // API routes get 401 JSON
     if (pathname.startsWith('/api/')) {
       return NextResponse.json(
         { error: { code: 'UNAUTHENTICATED', message: 'Não autenticado' } },
         { status: 401 }
       );
+    }
+    // If database is empty, redirect to onboarding; otherwise redirect to login
+    if (needsBootstrap) {
+      return NextResponse.redirect(new URL('/auth/onboarding', request.url));
     }
     const loginUrl = new URL('/auth/login', request.url);
     loginUrl.searchParams.set('callbackUrl', pathname);

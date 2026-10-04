@@ -12,6 +12,7 @@ const loginSchema = z.object({
   email: z.string().email('Email inválido'),
   password: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres'),
   rememberMe: z.boolean().optional(),
+  twoFactorToken: z.string().optional(),
 });
 
 interface LoginResponse {
@@ -45,14 +46,14 @@ function getCookieOptions(rememberMe: boolean) {
   return {
     accessToken: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_API_URL?.startsWith('https'),
       sameSite: 'lax' as const,
       maxAge,
       path: '/',
     },
     refreshToken: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_API_URL?.startsWith('https'),
       sameSite: 'lax' as const,
       maxAge: refreshMaxAge,
       path: '/',
@@ -66,20 +67,24 @@ export async function loginAction(prevState: { error?: string } | undefined, for
     email: formData.get('email') as string,
     password: formData.get('password') as string,
     rememberMe: formData.get('rememberMe') === 'on',
+    twoFactorToken: formData.get('twoFactorToken') as string || undefined,
   };
 
 
   const validated = loginSchema.safeParse(rawData);
 
   if (!validated.success) {
-    return { error: validated.error.errors[0].message };
+    return { error: validated.error.errors[0].message, requiresTwoFactor: false };
   }
 
   try {
     const response = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(validated.data),
+      body: JSON.stringify({
+        ...validated.data,
+        twoFactorToken: validated.data.twoFactorToken,
+      }),
     });
 
     const rawData = await response.json();
@@ -88,8 +93,13 @@ export async function loginAction(prevState: { error?: string } | undefined, for
     const data: LoginResponse = rawData.data ?? rawData;
     const errorMessage: string | undefined = rawData.error?.message;
 
+    // Handle 2FA required case - API returns { requiresTwoFactor: true, message: '...' } without accessToken
+    if (data.requiresTwoFactor) {
+      return { requiresTwoFactor: true };
+    }
+
     if (!response.ok || errorMessage || !data.accessToken) {
-      return { error: errorMessage || 'Credenciais inválidas' };
+      return { error: errorMessage || 'Credenciais inválidas', requiresTwoFactor: false };
     }
 
     // Set cookies server-side
@@ -99,16 +109,10 @@ export async function loginAction(prevState: { error?: string } | undefined, for
     cookieStore.set('accessToken', data.accessToken, options.accessToken);
     cookieStore.set('refreshToken', data.refreshToken, options.refreshToken);
 
-    // If 2FA is required, don't redirect yet - let the client handle it
-    if (data.requiresTwoFactor) {
-      return { success: true, requiresTwoFactor: true };
-    }
-
-    // For server actions, redirect to dashboard
-    // For API route calls, return success and let the caller redirect
-    return { success: true, redirectTo: '/dashboard' };
+    // Return requiresTwoFactor flag - client handles redirect
+    return { requiresTwoFactor: data.requiresTwoFactor };
   } catch {
-    return { error: 'Erro de conexão. Tente novamente.' };
+    return { error: 'Erro de conexão. Tente novamente.', requiresTwoFactor: false };
   }
 }
 

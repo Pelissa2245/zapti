@@ -7,81 +7,105 @@
 ### Checklist da Fase 1 (baseado em `docs/spec/09-fases-e-criterios.md`)
 
 #### Estrutura do repositório e Docker
-- [ ] Monorepo configurado (apps/api, apps/web, apps/worker, packages/*)
-- [ ] Docker Compose com: web, api, worker, postgres, redis
-- [ ] Dockerfiles multi-stage para cada serviço
-- [ ] Volumes persistentes: `/data/zapti/media`, `/data/zapti/backups`, `/data/zapti/logs`
-- [ ] `.env.example` completo com todas as variáveis documentadas
-- [ ] `install.sh` funcional (verifica Docker/Compose, gera secrets, cria .env, sobe tudo)
-- [ ] Health checks nos containers
-- [ ] Proxy reverso agnóstico documentado
+- [x] Monorepo configurado (apps/api, apps/web, apps/worker, packages/*)
+- [x] Docker Compose com: web, api, worker, postgres, redis
+- [x] Dockerfiles multi-stage para cada serviço
+- [x] Volumes persistentes: `/data/zapti/media`, `/data/zapti/backups`, `/data/zapti/logs`
+- [x] `.env.example` completo com todas as variáveis documentadas
+- [x] `install.sh` funcional (verifica Docker/Compose, gera secrets, cria .env, sobe tudo)
+- [x] Health checks nos containers
+- [x] Proxy reverso agnóstico documentado
 
 #### Multi-tenant e Isolamento
-- [ ] Modelo `Tenant` (empresa) no Prisma
-- [ ] Middleware Prisma para injeção automática de `tenant_id`
-- [ ] RLS (Row Level Security) no PostgreSQL
+- [x] Modelo `Tenant` (empresa) no Prisma
+- [x] Middleware Prisma para injeção automática de `tenant_id`
+- [x] RLS (Row Level Security) no PostgreSQL
 - [ ] Testes automatizados provando isolamento entre tenants
 - [ ] Superadmin da instalação (cria/suspende/exclui empresas)
 
 #### Usuários, Permissões e Equipes
-- [ ] Modelo `User` global (pertence a um ou mais tenants via `UserTenant`)
-- [ ] Permissões granulares + presets (Admin, Supervisor, Atendente, ReadOnly)
-- [ ] Modelo `Team` e `UserTeam`
-- [ ] CRUD de usuários (admin da empresa)
-- [ ] Políticas de permissão aplicadas no backend
+- [x] Modelo `User` global (pertence a um ou mais tenants via `UserTenant`)
+- [x] Permissões granulares + presets (Admin, Supervisor, Atendente, ReadOnly)
+- [x] Modelo `Team` e `UserTeam`
+- [x] CRUD de usuários (admin da empresa)
+- [x] Políticas de permissão aplicadas no backend
 
 #### Autenticação Completa
-- [ ] Login usuário/senha com Argon2id
-- [ ] JWT Access Token (15min) + Refresh Token (7d, rotação)
-- [ ] "Lembrar de mim" (refresh token de 30d)
-- [ ] 2FA TOTP + códigos de recuperação
+- [x] Login usuário/senha com Argon2id
+- [x] JWT Access Token (15min) + Refresh Token (7d, rotação)
+- [x] "Lembrar de mim" (refresh token de 30d)
+- [x] 2FA TOTP + códigos de recuperação (INCOMPLETO - inconsistências)
 - [ ] Esqueci minha senha (e-mail via SMTP com token seguro)
 - [ ] Admin força reset de senha / encerra sessões
 - [ ] Rate limiting / proteção força bruta (IP + conta)
 - [ ] Sessões/dispositivos: listar, revogar, encerrar todas outras
 - [ ] Limite de dispositivos simultâneos por usuário
 
-#### Auditoria e Danger Zone
-- [ ] Log de auditoria (quem, o quê, quando, IP, tenant, entidade)
-- [ ] Busca/filtro de auditoria
-- [ ] Retenção configurável
-- [ ] Danger Zone: ações destrutivas com confirmação por digitação
+#### Remoção de Cadastro Público (Etapa 2)
+- [x] Endpoint `POST /auth/register` removido da API
+- [x] Página `/auth/register` removida do frontend
+- [x] Action `registerAction` removida
+- [x] Links "Criar conta" / "Não tenho uma conta" removidos do login
+- [x] Middleware web não tem mais rota pública para registro
 
-#### i18n e Temas Básicos
-- [ ] Estrutura i18n (pt-BR base, arquivos JSON)
-- [ ] Troca de idioma em tempo real
-- [ ] Sistema de temas (cores, presets) — base para Fase 7
-
-#### Testes e Validação
-- [ ] Testes unitários (Vitest): auth, multi-tenant, permissões
-- [ ] Testes de integração: login, 2FA, reset senha, isolamento
-- [ ] Testes E2E (Playwright): fluxo primeiro acesso, login, 2FA
-- [ ] CI no GitHub Actions (lint, typecheck, testes)
-
-#### Critérios de Aceite da Fase 1
-- [ ] `docker compose up` sobe tudo sem erros
-- [ ] Assistente de primeiro acesso cria superadmin/empresa/admin
-- [ ] Dois tenants criados provam isolamento em testes
-- [ ] Login com 2FA funciona
-- [ ] Reset de senha por e-mail funciona
-- [ ] Sessões podem ser revogadas
+#### Onboarding/Bootstrap (Especificação do usuário)
+- [x] Endpoint `GET /auth/bootstrap-status` existente
+- [x] Endpoint `POST /auth/bootstrap` existente (só funciona com 0 usuários)
+- [x] Página `/auth/bootstrap` existente
+- [x] `OnboardingGuard` existente
+- [ ] Schema de resposta do bootstrap corrigido
+- [ ] Fluxo completo validado: Docker iniciado → banco sem usuários → onboarding → criar admin → login → dashboard
+- [ ] `initialized: false` com 0 usuários e `initialized: true` depois
+- [ ] Segunda tentativa de criar primeiro admin recusada
+- [ ] `/onboarding` redireciona quando já existe usuário
 
 ---
 
-## Fase 2 — Conexão com a Evolution API e importação
-**Status:** ⏳ Pendente
+## Estado Atual (2026-10-02) — Resumo da Recuperação
 
-## Fase 3 — Caixa de entrada, chat e mídias
-**Status:** ⏳ Pendente
+### Problemas Identificados e Status
 
-## Fase 4 — Tickets, filas e atendentes
-**Status:** ⏳ Pendente
+| Problema | Arquivo(s) | Status |
+|----------|------------|--------|
+| **Build do Web falha** - JSX syntax error (form sem fechamento) | `apps/web/src/app/auth/login/page.tsx` | ✅ **Corrigido** |
+| **Lint falha** - Unused vars + parsing error | `apps/web/src/app/auth/login/page.tsx`, `OnboardingGuard.tsx`, `auth.ts` store | ✅ **Corrigido** (warnings restantes são não-bloqueantes) |
+| **TypeScript warnings** - Unused imports, await sem efeito | `apps/api/src/routes/auth/index.ts`, `middleware/auth.ts` | 🟡 Warnings apenas (não-bloqueantes) |
+| **2FA inconsistente** - `requiresTwoFactor` vs `requires2FA`, `twoFactorToken` vs `twoFactorCode` | API, Web store, actions, login page | ✅ **Corrigido** - unificado em `requiresTwoFactor` e `twoFactorToken` |
+| **`verify2FA` no store** - Stub incompleto | `apps/web/src/store/auth.ts` | ✅ **Removido** (não usado, 2FA via login endpoint) |
+| **LoginCard onLogin type** - Não corresponde à implementação real | `apps/web/src/app/auth/login/page.tsx` | ✅ **Corrigido** - tipo agora corresponde |
+| **Testes** - Nenhum teste existe em nenhum pacote | apps/api, apps/web, packages/* | 🔴 Ausentes |
 
-## Fase 5 — BOT, fluxos e automações
-**Status:** ⏳ Pendente
+### Build e Lint Status Atual
+- ✅ **Web Build**: Sucesso (Next.js 14.2.3)
+- ✅ **Web Lint**: Apenas 1 warning (unused `_errors2FA` - prefixado com `_`)
+- ✅ **API Build**: Sucesso (tsc)
+- ⚠️ **API Lint**: Apenas warnings (no-floating-promises, no-explicit-any, no-unused-vars) - não bloqueantes
+- ✅ **Containers Docker**: Todos rodando e saudáveis (healthy)
 
-## Fase 6 — Mensagens em massa, templates, relatórios, integrações e API
-**Status:** ⏳ Pendente
+### Próximos Passos (Fase 1 - Finalizar Login e 2FA)
 
-## Fase 7 — Manutenção, atualização, monitoramento, personalização final e documentação
-**Status:** ⏳ Pendente
+1. **Escrever testes** para:
+   - Login com sucesso
+   - Senha incorreta
+   - Campos vazios
+   - 2FA obrigatório
+   - Bootstrap (primeiro admin)
+   - Isolamento multi-tenant
+
+2. **Completar funcionalidades de autenticação pendentes**:
+   - Esqueci minha senha (e-mail via SMTP)
+   - Admin força reset de senha / encerra sessões
+   - Rate limiting / proteção força bruta
+   - Sessões/dispositivos: listar, revogar, encerrar todas outras
+   - Limite de dispositivos simultâneos por usuário
+
+3. **Validar fluxo completo de bootstrap/onboarding** com banco limpo
+
+### Observações Importantes
+
+- Containers estão **rodando e saudáveis** (docker compose ps mostra todos Up/healthy)
+- Docker build context está correto: `D:\ZapTI`
+- Git root está correto: `D:\ZapTI`
+- Nenhum secret exposto no código
+- Banco de dados existente com dados - não pode ser destruído para testes
+- Nomenclatura 2FA unificada: `requiresTwoFactor` (boolean) e `twoFactorToken` (string) em todo o códigobase

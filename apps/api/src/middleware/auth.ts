@@ -1,7 +1,6 @@
 // ZapTI API — Authentication Middleware
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '@zapti/database';
-import { verifyToken, hashToken } from '@zapti/shared';
 import type { User, Tenant, UserTenant, UserRole, Permission } from '@zapti/shared';
 
 // Type conversions from Prisma to our types
@@ -76,6 +75,8 @@ export async function setupAuth(app: FastifyInstance) {
       '/api/v1/auth/forgot-password',
       '/api/v1/auth/reset-password',
       '/api/v1/auth/2fa/setup',
+      '/api/v1/auth/bootstrap-status',
+      '/api/v1/auth/bootstrap',
       '/api/v1/whatsapp/webhook',
     ];
 
@@ -91,10 +92,16 @@ export async function setupAuth(app: FastifyInstance) {
       '/auth/forgot-password',
       '/auth/reset-password',
       '/auth/2fa/setup',
+      '/auth/bootstrap-status',
+      '/auth/bootstrap',
       '/whatsapp/webhook',
     ];
 
-    if (publicPaths.some((p) => request.url.startsWith(p)) || publicPathsNoPrefix.some((p) => request.url.startsWith(p))) {
+    // Check against both full URL (including query string) and just pathname
+    const requestUrl = request.url;
+    const isPublic = publicPaths.some((p) => requestUrl.startsWith(p)) || publicPathsNoPrefix.some((p) => requestUrl.startsWith(p));
+
+    if (isPublic) {
       return;
     }
 

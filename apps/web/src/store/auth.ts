@@ -28,8 +28,7 @@ interface AuthState {
   isSuperadmin: boolean;
 
   // Actions
-  login: (email: string, password: string, rememberMe?: boolean) => Promise<{ requiresTwoFactor: boolean }>;
-  verify2FA: (token: string) => Promise<void>;
+  login: (email: string, password: string, rememberMe?: boolean, twoFactorToken?: string) => Promise<{ requiresTwoFactor: boolean }>;
   logout: () => Promise<void>;
   logoutAll: () => Promise<void>;
   setCurrentTenant: (tenant: Tenant) => void;
@@ -51,13 +50,13 @@ export const useAuthStore = create<AuthState>()((set) => ({
   error: null,
   isSuperadmin: false,
 
-  login: async (email, password, rememberMe = false) => {
+  login: async (email, password, rememberMe = false, twoFactorToken?: string) => {
     set({ isLoading: true, error: null });
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, rememberMe }),
+        body: JSON.stringify({ email, password, rememberMe, twoFactorToken }),
       });
 
       const data = await response.json().catch(() => ({}));
@@ -83,12 +82,6 @@ export const useAuthStore = create<AuthState>()((set) => ({
       set({ error: message, isLoading: false });
       throw error;
     }
-  },
-
-  verify2FA: async () => {
-    // 2FA verification is handled by the login endpoint (twoFactorCode field);
-    // no separate flow yet.
-    await useAuthStore.getState().fetchCurrentUser();
   },
 
   logout: async () => {

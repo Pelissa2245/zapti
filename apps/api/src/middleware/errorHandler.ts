@@ -1,7 +1,6 @@
 // ZapTI API — Error Handler Middleware
 import { FastifyInstance, FastifyError, FastifyRequest, FastifyReply } from 'fastify';
 import { ZodError } from 'zod';
-import { Prisma } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 
 export function setupErrorHandler(app: FastifyInstance) {
@@ -31,10 +30,12 @@ export function setupErrorHandler(app: FastifyInstance) {
     if (error instanceof PrismaClientKnownRequestError) {
       switch (error.code) {
         case 'P2002': // Unique constraint violation
-          const target = (error.meta?.target as string[])?.join(', ') || 'campo';
-          return reply.status(409).send({
-            error: { code: 'DUPLICATE_ENTRY', message: `${target} já está em uso` },
-          });
+          {
+            const target = (error.meta?.target as string[])?.join(', ') || 'campo';
+            return reply.status(409).send({
+              error: { code: 'DUPLICATE_ENTRY', message: `${target} já está em uso` },
+            });
+          }
         case 'P2003': // Foreign key constraint violation
           return reply.status(400).send({
             error: { code: 'INVALID_REFERENCE', message: 'Referência inválida' },

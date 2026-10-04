@@ -14,7 +14,7 @@ const loginSchema = z.object({
   password: z.string().min(8),
   rememberMe: z.boolean().default(false),
   tenantSlug: z.string().optional(),
-  twoFactorCode: z.string().optional(),
+  twoFactorToken: z.string().optional(),
 });
 
 const loginSchemaJson = toJsonSchema(loginSchema);
@@ -57,13 +57,59 @@ const verify2FASchema = z.object({
 
 const verify2FASchemaJson = toJsonSchema(verify2FASchema);
 
+// Bootstrap schemas (first admin creation)
+const bootstrapStatusSchema = z.object({
+  needsBootstrap: z.boolean(),
+});
+
+const bootstrapStatusSchemaJson = toJsonSchema(bootstrapStatusSchema);
+
+const bootstrapResponseSchema = z.object({
+  user: z.object({
+    id: z.string(),
+    name: z.string(),
+    email: z.string(),
+    avatarUrl: z.string().nullable(),
+    isSuperadmin: z.boolean(),
+    onboardingCompleted: z.boolean(),
+  }),
+  tenant: z.object({
+    id: z.string(),
+    name: z.string(),
+    slug: z.string(),
+    plan: z.string(),
+  }),
+  session: z.object({
+    id: z.string(),
+    expiresAt: z.date(),
+  }),
+  accessToken: z.string(),
+  refreshToken: z.string(),
+  requiresTwoFactor: z.boolean(),
+});
+
+const bootstrapResponseSchemaJson = toJsonSchema(bootstrapResponseSchema);
+
+const bootstrapSchema = z.object({
+  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres').max(100),
+  email: z.string().email('Email inválido'),
+  password: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres').max(128),
+  confirmPassword: z.string(),
+  tenantName: z.string().min(2, 'Nome da empresa deve ter pelo menos 2 caracteres').max(100),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: 'As senhas não conferem',
+  path: ['confirmPassword'],
+});
+
+const bootstrapSchemaJson = toJsonSchema(bootstrapSchema);
+
 export async function authRoutes(app: FastifyInstance) {
   // POST /auth/login
   app.post('/login', {
     schema: { body: loginSchemaJson },
     config: { rateLimit: { max: 10, timeWindow: 60 * 1000 } },
   }, async (request, reply) => {
-    const { email, password, rememberMe, tenantSlug, twoFactorCode } = request.body as z.infer<typeof loginSchema>;
+    const { email, password, rememberMe, tenantSlug, twoFactorToken } = request.body as z.infer<typeof loginSchema>;
     const ip = request.ip;
     const userAgent = request.headers['user-agent'] || '';
 
@@ -106,12 +152,12 @@ export async function authRoutes(app: FastifyInstance) {
 
     // Check 2FA
     if (user.twoFactorEnabled) {
-      if (!twoFactorCode) {
-        return reply.status(200).send({ requires2FA: true, message: 'Código 2FA necessário' });
+      if (!twoFactorToken) {
+        return reply.status(200).send({ requiresTwoFactor: true, message: 'Código 2FA necessário' });
       }
 
       const { verifyTOTP } = await import('@zapti/shared/auth');
-      if (!verifyTOTP(user.twoFactorSecret!, twoFactorCode)) {
+      if (!verifyTOTP(user.twoFactorSecret!, twoFactorToken)) {
         await logAuthAttempt(request, 'LOGIN_FAILED', { email, reason: 'invalid_2fa' });
         return reply.status(401).send({ error: { code: 'INVALID_2FA', message: 'Código 2FA inválido' } });
       }
@@ -157,6 +203,140 @@ export async function authRoutes(app: FastifyInstance) {
       user: { id: user.id, name: user.name, email: user.email, avatarUrl: user.avatarUrl, isSuperadmin: user.isSuperadmin, onboardingCompleted: user.onboardingCompleted },
       tenant: { id: tenant.id, name: tenant.name, slug: tenant.slug, plan: tenant.plan },
       session: { id: session.id, expiresAt: session.expiresAt },
+      accessToken,
+      refreshToken,
+      requiresTwoFactor: false,
+    };
+  });
+
+  // GET /auth/bootstrap-status - Public endpoint to check if bootstrap is needed
+  app.get('/bootstrap-status', {
+    schema: { response: { 200: bootstrapStatusSchemaJson } },
+    config: { rateLimit: { max: 10, timeWindow: 60 * 1000 } },
+  }, async (request, reply) => {
+    const userCount = await prisma.user.count();
+    return { needsBootstrap: userCount === 0 };
+  });
+
+  // POST /auth/bootstrap - Create first admin (only works when no users exist)
+  app.post('/bootstrap', {
+    schema: { body: bootstrapSchemaJson, response: { 200: bootstrapResponseSchemaJson } },
+    config: { rateLimit: { max: 3, timeWindow: 60 * 1000 } },
+  }, async (request, reply) => {
+    // Check if bootstrap is still allowed (no users exist)
+    const userCount = await prisma.user.count();
+    if (userCount > 0) {
+      return reply.status(403).send({ error: { code: 'BOOTSTRAP_NOT_ALLOWED', message: 'Bootstrap não permitido: já existem usuários cadastrados' } });
+    }
+
+    const { name, email, password, tenantName } = request.body as z.infer<typeof bootstrapSchema>;
+    const ip = request.ip;
+    const userAgent = request.headers['user-agent'] || '';
+
+    // Hash password
+    const { hashPassword } = await import('@zapti/shared/auth');
+    const passwordHash = await hashPassword(password);
+
+    // Use transaction to ensure atomicity
+    const result = await prisma.$transaction(async (tx) => {
+      // Double-check inside transaction
+      const count = await tx.user.count();
+      if (count > 0) {
+        throw new Error('BOOTSTRAP_RACE_CONDITION');
+      }
+
+      // Create tenant
+      const slug = tenantName
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '')
+        .substring(0, 50);
+
+      // Ensure unique slug
+      let finalSlug = slug;
+      let counter = 1;
+      while (await tx.tenant.findUnique({ where: { slug: finalSlug } })) {
+        finalSlug = `${slug}-${counter}`;
+        counter++;
+      }
+
+      // Create user as superadmin first
+      const user = await tx.user.create({
+        data: {
+          email: email.toLowerCase(),
+          name,
+          passwordHash,
+          isSuperadmin: true,
+          onboardingCompleted: false,
+          language: 'pt-BR',
+          timezone: 'America/Sao_Paulo',
+        },
+      });
+
+      // Create tenant with ownerId set to the new user
+      const tenant = await tx.tenant.create({
+        data: {
+          name: tenantName,
+          slug: finalSlug,
+          settings: JSON.stringify({}),
+          ownerId: user.id,
+        },
+      });
+
+      // Create user-tenant relationship with OWNER role
+      await tx.userTenant.create({
+        data: {
+          userId: user.id,
+          tenantId: tenant.id,
+          role: 'OWNER',
+          permissions: JSON.stringify(['*']),
+        },
+      });
+
+      return { user, tenant };
+    });
+
+    // Create session for the new admin
+    const { generateTokenPair, createSession, hashToken } = await import('@zapti/shared/auth');
+    const sessionData = createSession(result.user.id, result.tenant.id, ip, userAgent, true);
+    const { accessToken, refreshToken } = generateTokenPair(sessionData.id, result.user.id, result.tenant.id, true);
+    const refreshTokenHash = await hashToken(refreshToken);
+
+    await prisma.session.create({
+      data: {
+        id: sessionData.id,
+        userId: sessionData.userId,
+        tenantId: sessionData.tenantId,
+        refreshToken: refreshTokenHash,
+        userAgent: sessionData.userAgent,
+        ip: sessionData.ip,
+        expiresAt: sessionData.expiresAt,
+        status: 'ACTIVE',
+      },
+    });
+
+    // Set cookies
+    const cookieOptions = {
+      httpOnly: true,
+      secure: config.env === 'production',
+      sameSite: 'lax' as const,
+      maxAge: 30 * 24 * 60 * 60,
+      path: '/',
+    };
+
+    reply.setCookie('accessToken', accessToken, cookieOptions);
+    reply.setCookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 30 * 24 * 60 * 60 });
+
+    await logAuthAttempt(request, 'BOOTSTRAP_COMPLETED', { userId: result.user.id, tenantId: result.tenant.id });
+
+    return {
+      user: { id: result.user.id, name: result.user.name, email: result.user.email, avatarUrl: result.user.avatarUrl, isSuperadmin: result.user.isSuperadmin, onboardingCompleted: result.user.onboardingCompleted },
+      tenant: { id: result.tenant.id, name: result.tenant.name, slug: result.tenant.slug, plan: result.tenant.plan },
+      session: { id: sessionData.id, expiresAt: sessionData.expiresAt },
       accessToken,
       refreshToken,
       requiresTwoFactor: false,

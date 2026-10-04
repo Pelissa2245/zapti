@@ -24,7 +24,12 @@ const loginSchema = z.object({
   twoFactorToken: z.string().optional(),
 });
 
+const twoFactorSchema = z.object({
+  twoFactorToken: z.array(z.string().length(1)).length(6),
+});
+
 type LoginForm = z.infer<typeof loginSchema>;
+type TwoFactorForm = z.infer<typeof twoFactorSchema>;
 
 // Theme context for the login page (uses next-themes globally, but login page needs its own for SSR)
 const LoginThemeContext = React.createContext<{
@@ -231,7 +236,7 @@ function LoginCard({
   callbackUrl,
   error
 }: {
-  onLogin: (data: LoginForm) => Promise<void>;
+  onLogin: (data: LoginForm) => Promise<{ requiresTwoFactor: boolean; error?: string }>;
   callbackUrl: string;
   error: string | null;
 }) {
@@ -240,6 +245,8 @@ function LoginCard({
   const [show2FA, setShow2FA] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
   const [buttonState, setButtonState] = React.useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [checkingBootstrap, setCheckingBootstrap] = React.useState(true);
+  const [pendingLoginData, setPendingLoginData] = React.useState<LoginForm | null>(null);
 
   const {
     register,
@@ -250,15 +257,35 @@ function LoginCard({
     defaultValues: { rememberMe: false },
   });
 
+  // Separate form for 2FA
+  const {
+    register: register2FA,
+    handleSubmit: handleSubmit2FA,
+    formState: { errors: _errors2FA }, // eslint-disable-line @typescript-eslint/no-unused-vars
+  } = useForm<TwoFactorForm>({
+    resolver: zodResolver(twoFactorSchema),
+    defaultValues: { twoFactorToken: ['', '', '', '', '', ''] },
+  });
+
   const handleSubmitForm = async (data: LoginForm) => {
+    // Store the login data for potential 2FA verification
+    setPendingLoginData(data);
+
     setIsLoading(true);
     setButtonState('loading');
     try {
-      await onLogin(data);
-      setButtonState('success');
-      toast.success('Login realizado com sucesso!');
-      router.push(callbackUrl);
-      router.refresh();
+      const result = await onLogin(data);
+      if (result.requiresTwoFactor) {
+        // 2FA required - show 2FA form
+        setShow2FA(true);
+        setButtonState('idle');
+      } else {
+        // Login successful - redirect to dashboard
+        setButtonState('success');
+        toast.success('Login realizado com sucesso!');
+        router.push(callbackUrl);
+        router.refresh();
+      }
     } catch (err: any) {
       setButtonState('error');
       const message = err.response?.data?.error?.message || 'Erro ao fazer login';
@@ -270,12 +297,24 @@ function LoginCard({
     }
   };
 
-  const handle2FASubmit = async () => {
+  const handle2FASubmit = async (data: TwoFactorForm) => {
     setIsLoading(true);
     try {
-      toast.success('Autenticação de dois fatores verificada!');
-      router.push(callbackUrl);
-      router.refresh();
+      const twoFactorToken = data.twoFactorToken.join('');
+      // Use stored login credentials from the initial login attempt
+      const loginData = {
+        email: pendingLoginData!.email,
+        password: pendingLoginData!.password,
+        rememberMe: pendingLoginData!.rememberMe,
+        twoFactorToken: twoFactorToken,
+      };
+      const result = await onLogin(loginData);
+
+      if (!result.requiresTwoFactor) {
+        toast.success('Autenticação de dois fatores verificada!');
+        router.push(callbackUrl);
+        router.refresh();
+      }
     } catch (err: any) {
       const message = err.response?.data?.error?.message || 'Código 2FA inválido';
       toast.error(message);
@@ -283,6 +322,40 @@ function LoginCard({
       setIsLoading(false);
     }
   };
+
+  // Check bootstrap status on mount
+  React.useEffect(() => {
+    async function checkBootstrap() {
+      try {
+        const res = await fetch('/api/auth/bootstrap-status', {
+          headers: { 'Content-Type': 'application/json' },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.needsBootstrap) {
+            router.replace(`/auth/bootstrap?callbackUrl=${encodeURIComponent(callbackUrl)}`);
+            return;
+          }
+        }
+      } catch (e) {
+        console.error('Bootstrap check failed', e);
+      } finally {
+        setCheckingBootstrap(false);
+      }
+    }
+    checkBootstrap();
+  }, [router, callbackUrl]);
+
+  // Show loading while checking bootstrap
+  if (checkingBootstrap) {
+    return (
+      <div className="w-full max-w-md">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary-600" aria-hidden="true" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Card className={cn(
@@ -299,8 +372,8 @@ function LoginCard({
         aria-hidden="true"
       />
 
-      <CardHeader className="text-center pb-4">
-        <div className="mx-auto mb-6 relative">
+      <CardHeader className="text-center pb-4 relative">
+        <div className="mx-auto mb-6">
           <Link href="/" className="inline-flex items-center gap-3" aria-label="ZapTI - Página inicial">
             <div className={cn(
               'flex h-14 w-14 items-center justify-center rounded-2xl',
@@ -318,9 +391,11 @@ function LoginCard({
               ZapTI
             </span>
           </Link>
+        </div>
 
-          {/* Theme Toggle */}
-          <ThemeToggle className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2" />
+        {/* Theme Toggle - positioned at top-right of CardHeader */}
+        <div className="absolute top-0 right-0 -translate-y-1/2">
+          <ThemeToggle />
         </div>
 
         <CardTitle className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
@@ -472,9 +547,9 @@ function LoginCard({
               )}
             </Button>
 
-                      </form>
+            </form>
         ) : (
-          <div className="space-y-4 text-center animate-fade-in">
+          <form onSubmit={handleSubmit2FA(handle2FASubmit)} className="space-y-4 text-center animate-fade-in">
             <div className="mx-auto w-16 h-16 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center">
               <Lock className="h-8 w-8 text-primary-600 dark:text-primary-400" aria-hidden="true" />
             </div>
@@ -488,6 +563,7 @@ function LoginCard({
                   key={i}
                   type="text"
                   maxLength={1}
+                  {...register2FA(`twoFactorToken.${i - 1}` as `twoFactorToken.${number}`)}
                   className="w-10 h-12 text-center text-lg font-medium rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                   inputMode="numeric"
                   autoComplete="one-time-code"
@@ -496,7 +572,7 @@ function LoginCard({
               ))}
             </div>
             <Button
-              onClick={() => handle2FASubmit()}
+              type="submit"
               className="w-full h-12"
               disabled={isLoading}
               isLoading={isLoading}
@@ -506,12 +582,13 @@ function LoginCard({
             <Button
               variant="ghost"
               size="sm"
+              type="button"
               onClick={() => setShow2FA(false)}
               disabled={isLoading}
             >
               Voltar
             </Button>
-          </div>
+        </form>
         )}
       </CardContent>
 
@@ -535,27 +612,19 @@ function ThemeToggle({ className }: { className?: string }) {
     <button
       onClick={toggleTheme}
       className={cn(
-        'p-2 rounded-xl transition-all duration-300',
+        'p-2 rounded-lg transition-colors',
         'hover:bg-slate-100 dark:hover:bg-slate-800',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
-        'active:scale-95',
         className
       )}
       aria-label={theme === 'light' ? 'Alternar para tema escuro' : 'Alternar para tema claro'}
       aria-pressed={theme === 'dark'}
     >
-      <span className={cn(
-        'inline-block h-5 w-5 transition-all duration-300',
-        theme === 'light' ? 'rotate-0 scale-100' : '-rotate-90 scale-0'
-      )}>
-        <Sun className="h-5 w-5 text-amber-500" aria-hidden="true" />
-      </span>
-      <span className={cn(
-        'absolute inline-block h-5 w-5 transition-all duration-300',
-        theme === 'dark' ? 'rotate-0 scale-100' : 'rotate-90 scale-0'
-      )}>
+      {theme === 'light' ? (
         <Moon className="h-5 w-5 text-slate-600 dark:text-slate-300" aria-hidden="true" />
-      </span>
+      ) : (
+        <Sun className="h-5 w-5 text-amber-500" aria-hidden="true" />
+      )}
     </button>
   );
 }
@@ -569,15 +638,22 @@ function LoginPageContent() {
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
   const error = searchParams.get('error');
 
-  const handleLogin = async (data: LoginForm) => {
-    const result = await login(data.email, data.password, data.rememberMe);
+  const handleLogin = async (data: LoginForm): Promise<{ requiresTwoFactor: boolean; error?: string }> => {
+    const result = await login(data.email, data.password, data.rememberMe, data.twoFactorToken);
 
     if (result.requiresTwoFactor) {
-      // In a real app, you'd call a separate 2FA verification endpoint
+      // 2FA required - user needs to enter 2FA code
       // For now, we'll just redirect as the login already handles it
       toast.success('Autenticação de dois fatores verificada!');
       router.push(callbackUrl);
       router.refresh();
+      return { requiresTwoFactor: true };
+    } else {
+      // Login successful - redirect to dashboard
+      toast.success('Login realizado com sucesso!');
+      router.push(callbackUrl);
+      router.refresh();
+      return { requiresTwoFactor: false };
     }
   };
 

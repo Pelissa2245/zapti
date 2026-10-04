@@ -12,7 +12,7 @@ export const prisma = new PrismaClient({
   log: config.env === 'development' ? ['query', 'error', 'warn'] : ['error'],
 });
 
-async function buildApp() {
+export async function buildApp() {
   const app = Fastify({
     logger: config.logging,
     trustProxy: true,

@@ -5,6 +5,7 @@ import * as React from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { useAuthStore } from '@/store/auth';
+import { Zap } from 'lucide-react';
 
 interface OnboardingGuardProps {
   children: React.ReactNode;
@@ -20,6 +21,25 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
 
     async function validate() {
       try {
+        // Check if we're on the onboarding page and if bootstrap is needed
+        // If database is empty, onboarding page should be accessible without session
+        if (pathname === '/auth/onboarding') {
+          const bootstrapRes = await fetch('/api/auth/bootstrap-status', {
+            headers: { 'Content-Type': 'application/json' },
+            cache: 'no-store',
+          });
+          if (bootstrapRes.ok) {
+            const data = await bootstrapRes.json();
+            if (data.needsBootstrap === true) {
+              // Database is empty, allow access to onboarding without session
+              if (!cancelled) {
+                setStatus('authenticated');
+              }
+              return;
+            }
+          }
+        }
+
         // Ask the server whether there is a REAL session (cookies are httpOnly,
         // so the client store alone cannot be trusted)
         const res = await fetch('/api/auth/me', {
@@ -27,6 +47,8 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
         });
 
         if (res.status === 401) {
+          // No session - check if we need to redirect to login
+          // (bootstrap check happens in middleware for root path)
           if (!cancelled) {
             setStatus('redirecting');
             router.replace(`/auth/login?callbackUrl=${encodeURIComponent(pathname)}`);
@@ -60,6 +82,8 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
             isSuperadmin: session.user.isSuperadmin || false,
           });
 
+          // Check if user needs to complete onboarding (language, timezone, etc.)
+          // But only redirect if not already on onboarding page
           if (!session.user.onboardingCompleted && !pathname.startsWith('/auth/onboarding')) {
             setStatus('redirecting');
             router.replace('/auth/onboarding');
@@ -87,10 +111,12 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
   // Never render protected children until a REAL session is confirmed
   if (status !== 'authenticated') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse text-center">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
-          <p className="text-muted-foreground">Carregando...</p>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <div className="text-center">
+          <div className="mx-auto mb-6 w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
+            <Zap className="w-10 h-10 text-primary animate-spin" />
+          </div>
+          <p className="text-slate-500 dark:text-slate-400">Verificando sessão...</p>
         </div>
       </div>
     );

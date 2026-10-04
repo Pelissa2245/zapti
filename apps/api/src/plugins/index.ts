@@ -107,7 +107,7 @@ export async function registerPlugins(app: FastifyInstance) {
   app.get('/ready', async () => ({ status: 'ready' }));
 
   // Metrics endpoint (for Prometheus)
-  if (config.env !== 'production') {
+  if (config.env !== 'production' && config.env !== 'test') {
     const fastifyMetricsModule = await import('fastify-metrics');
     const fastifyMetricsPlugin = fastifyMetricsModule.default || fastifyMetricsModule;
     await app.register(fastifyMetricsPlugin as any, {
