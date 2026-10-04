@@ -1,5 +1,21 @@
 # Decisões de Arquitetura — ZapTI
 
+## Atualização — 2026-10-04
+
+### Integração WhatsApp
+
+O provedor de integração do produto é a **Evolution API**, não a Meta Graph API nem um mock local. O cliente está em `apps/api/src/services/evolution.ts` e usa `EVOLUTION_API_URL` + `EVOLUTION_API_KEY`. Operações sem essas variáveis devem falhar de forma explícita, sem gerar QR ou confirmar envio fictício.
+
+O webhook aceita o header `apikey`/`x-api-key` e payloads padrão da Evolution API. A instância é resolvida pelo campo `instance` do payload ou pelos headers opcionais `x-tenant-id` e `x-instance-id`.
+
+### Backups
+
+A rota de backups não está registrada na API porque a referência anterior não existia e impedia a compilação. O volume de backups no Compose é apenas armazenamento disponível; uma rotina de criação/restauração precisa ser implementada e testada antes de ser documentada como funcionalidade.
+
+### Continuidade
+
+O estado auditado foi sincronizado no branch `master` do GitHub no commit `ee408cf`. O próximo agente deve começar por `git status`, `git log -3`, `CLAUDE.md` e `docs/PROGRESSO.md`.
+
 ## Stack Escolhida (Fase 1)
 
 | Camada | Tecnologia | Justificativa |

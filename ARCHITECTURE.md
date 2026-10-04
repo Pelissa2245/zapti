@@ -98,6 +98,8 @@ zapti/
 
 ### Route Organization (`src/routes/`)
 
+The `backups` route is **not registered** in the current API because the previous import pointed to a missing module. Do not document it as an available endpoint until a tested implementation exists.
+
 | Route Module | Prefix | Permissions | Key Endpoints |
 |-------------|--------|-------------|---------------|
 | `auth` | `/auth` | Public | `POST /login`, `POST /register`, `POST /refresh`, `POST /logout`, `GET /me`, `POST /2fa/*` |
@@ -111,7 +113,6 @@ zapti/
 | `flows` | `/flows` | `flows:*` | CRUD, `POST /:id/publish`, `GET /:id/executions` |
 | `automations` | `/automations` | `automations:*` | CRUD, trigger/action management |
 | `audit` | `/audit` | `audit:read` | `GET /logs` with filters |
-| `backups` | `/backups` | `backups:*` | `POST /create`, `GET /list`, `POST /:id/restore` |
 
 ### Middleware Chain (`src/middleware/`)
 1. **Tenant resolution** - Extracts tenant from subdomain/header/JWT
@@ -126,7 +127,7 @@ zapti/
 - Room-based subscriptions (tenant, user, conversation)
 
 ### Key Services
-- **WhatsApp Service** (`src/services/whatsapp.ts`) - Baileys integration, QR generation, message handling
+- **Evolution API Client** (`src/services/evolution.ts`) - instance lifecycle, QR response, message sending, and response parsing
 - **Flow Engine** (`src/services/flow-engine.ts`) - Executes published flows
 - **Automation Engine** (`src/services/automation-engine.ts`) - Evaluates triggers, executes actions
 - **SLA Monitor** (`src/services/sla-monitor.ts`) - Background job for SLA breaches
@@ -242,9 +243,23 @@ src/app/
 
 ## 6. WhatsApp Integration
 
+> **Current implementation (2026-10-04):** ZapTI uses the Evolution API. The older Meta/Baileys descriptions below are historical and must not be used as implementation guidance.
+
+### Current Evolution API flow
+
+1. `POST /whatsapp/instances` creates the remote Evolution instance and the local tenant-scoped record.
+2. `POST /whatsapp/instances/:id/connect` requests the connection/QR response from Evolution API.
+3. `POST /whatsapp/instances/:id/send` sends text through `sendText` or media through `sendMedia` and persists the returned external message ID.
+4. `POST /whatsapp/instances/:id/disconnect` calls Evolution logout before updating local state.
+5. `POST /whatsapp/webhook` authenticates the Evolution API key, resolves the instance, normalizes inbound messages, and broadcasts them.
+
+Required environment variables: `EVOLUTION_API_URL` and `EVOLUTION_API_KEY`.
+
+### Historical design reference
+
 ### Architecture
 ```
-WhatsApp Business API (Meta)
+Evolution API
         │
         ▼
 Webhook endpoint (/whatsapp/webhook)
@@ -259,13 +274,13 @@ WebSocket broadcast → Real-time UI updates
 ### Instance Lifecycle
 1. **Create** - `POST /whatsapp/instances` → status: `DISCONNECTED`
 2. **Connect** - `POST /whatsapp/instances/:id/connect` → generates QR code
-3. **QR Scan** - User scans → Baileys connects → status: `CONNECTED`
+3. **QR Scan** - User scans → Evolution API connects → status: `CONNECTED`
 4. **Sync** - Historical messages/contacts synced in background
 5. **Disconnect** - `POST /whatsapp/instances/:id/disconnect` or session expiry
 
 ### Message Processing
-- Inbound: Webhook → normalize → upsert contact → upsert conversation → create message → broadcast
-- Outbound: API → Baileys send → webhook echo → update message status
+- Inbound: Evolution webhook → normalize → upsert contact → upsert conversation → create message → broadcast
+- Outbound: API → Evolution `sendText`/`sendMedia` → persist external ID → broadcast
 - Media: Downloaded to S3-compatible storage, URL stored in message
 
 ---

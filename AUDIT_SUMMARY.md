@@ -1,5 +1,7 @@
 # ZapTI - Auditoria Completa
 
+> **Nota de continuidade — 2026-10-04:** este documento registra uma auditoria histórica e contém afirmações antigas sobre Git, cadastro, páginas e Meta/Baileys. Para o estado atual, prevalecem `CLAUDE.md`, `README.md`, `docs/PROGRESSO.md`, `docs/DECISOES.md` e `ARCHITECTURE.md`. O commit atual é `ee408cf` no branch `master`; a integração WhatsApp usa Evolution API e a rota de backups não está registrada.
+
 ## 1. Estrutura do Projeto Confirmada
 - **Diretório**: D:\ZapTI ✅
 - **Apps**: web (Next.js 14) + api (Fastify)

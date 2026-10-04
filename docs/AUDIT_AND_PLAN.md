@@ -1,5 +1,7 @@
 # ZapTI — Auditoria Completa e Plano de Execução
 
+> **Nota de continuidade — 2026-10-04:** este plano é histórico. Para o estado implementado, use `CLAUDE.md`, `README.md`, `docs/PROGRESSO.md`, `docs/DECISOES.md` e `ARCHITECTURE.md`. O commit `ee408cf` foi sincronizado em `master`; a integração WhatsApp atual usa Evolution API, e a rota de backups não está registrada.
+
 **Data**: 2026-10-02  
 **Diretório de trabalho**: D:\ZapTI (confirmado)  
 **Fase atual**: Fase 1 — Base, Docker, Login e Usuários (em andamento)

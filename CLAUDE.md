@@ -1,5 +1,19 @@
 ZapTI — Regras de trabalho
 
+## Handoff confirmado — 2026-10-04
+
+O repositório foi auditado, corrigido e sincronizado no GitHub em `master` pelo commit `ee408cf` (`fix: replace WhatsApp mocks with Evolution API integration`). Antes de iniciar novo trabalho, execute `git status`, `git log -3` e leia `docs/PROGRESSO.md`.
+
+Alterações concluídas nesse ciclo:
+
+- A integração WhatsApp deixou de simular QR/envio e usa a Evolution API para criar instâncias, conectar, desconectar e enviar texto/mídia.
+- O webhook exige `EVOLUTION_API_KEY` e aceita payload padrão da Evolution API, resolvendo a instância pelo campo `instance` ou pelos headers opcionais.
+- A rota de backups quebrada foi removida do registro da API; não trate o volume de backups do Compose como backup implementado.
+- Foram adicionados testes Vitest do cliente Evolution; `npm test`, `npm run build`, `npm run lint` e `prisma validate` passaram. O lint ainda emite avisos preexistentes.
+- Docker Compose não foi validado neste ambiente porque o binário `docker` não está instalado; validar em máquina com Docker antes de deploy.
+
+Não reintroduza mocks de WhatsApp. Se Evolution API não estiver configurada, o comportamento correto é falhar com erro de serviço (`503`), não inventar QR ou mensagem enviada.
+
 «LEIA ESTE ARQUIVO INTEIRO ANTES DE QUALQUER AÇÃO.
 
 Estas regras são obrigatórias e têm prioridade sobre conveniências de implementação.»

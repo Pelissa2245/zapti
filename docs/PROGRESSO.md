@@ -1,5 +1,35 @@
 # Progresso do ZapTI
 
+## Atualização de continuidade — 2026-10-04
+
+**Commit:** `ee408cf fix: replace WhatsApp mocks with Evolution API integration`
+
+### Concluído neste ciclo
+
+- API compilando novamente: referência quebrada de `backups` removida do registro de rotas.
+- Integração real com Evolution API implementada em `apps/api/src/services/evolution.ts`.
+- Ciclo de instância implementado: criar, conectar/obter QR, desconectar e enviar texto/mídia.
+- Webhook autenticado por `EVOLUTION_API_KEY`, compatível com payload padrão da Evolution API e com resolução por nome da instância.
+- Testes unitários adicionados em `apps/api/src/services/evolution.test.ts`.
+- README, `.env.example`, configuração de runtime e Docker Compose atualizados.
+- Migrations Prisma e testes deixaram de ser ignorados pelo Git.
+
+### Verificações executadas
+
+- `npm test`: aprovado (2 testes).
+- `npm run build`: aprovado em todos os workspaces.
+- `npm run lint`: aprovado sem erros; avisos preexistentes permanecem.
+- `prisma validate`: aprovado.
+- `git diff --check`: aprovado.
+- `docker compose config`: não executado com sucesso porque Docker não está instalado no ambiente de auditoria.
+
+### Pendências importantes
+
+- Validar a integração contra uma instância Evolution API real e confirmar a configuração de webhook no ambiente de deploy.
+- Executar `docker compose config` e `docker compose up --build` em uma máquina com Docker.
+- Criar/validar testes de integração com PostgreSQL para isolamento multi-tenant.
+- Não considerar o volume `backups` como rotina de backup implementada; a rota de backup não está registrada.
+
 ## Fase 1 — Base do projeto, Docker, login e usuários
 **Status:** 🟡 Em andamento  
 **Iniciado em:** 2026-09-28
