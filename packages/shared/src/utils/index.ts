@@ -198,18 +198,6 @@ export function unflattenObject(obj: Record<string, any>): Record<string, any> {
 }
 
 /**
- * Generate a slug from a string
- */
-export function slugify(str: string): string {
-  return str
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/[\s_-]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
-/**
  * Capitalize first letter of each word
  */
 export function titleCase(str: string): string {
