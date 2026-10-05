@@ -15,7 +15,6 @@ export interface User {
 export interface Tenant {
   id: string;
   name: string;
-  slug: string;
   role: string;
 }
 

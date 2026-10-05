@@ -53,7 +53,6 @@ export async function tenantMiddleware(app: FastifyInstance) {
       select: {
         id: true,
         name: true,
-        slug: true,
         status: true,
         settings: true,
       },

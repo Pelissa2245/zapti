@@ -22,7 +22,6 @@ const publicApiPaths = [
   '/api/auth/me',
   '/api/auth/bootstrap-status',
   '/api/auth/bootstrap',
-  '/api/v1/auth/check-slug',
 ];
 
 function isPublicPath(pathname: string): boolean {

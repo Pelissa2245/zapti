@@ -175,7 +175,6 @@ export async function userRoutes(app: FastifyInstance) {
       tenant: {
         id: request.tenant!.id,
         name: request.tenant!.name,
-        slug: request.tenant!.slug,
       },
       role: userTenant.role,
       permissions: userTenant.permissions,

@@ -8,9 +8,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { Label } from '@/components/ui/Label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
-import { Checkbox } from '@/components/ui/Checkbox';
-import { Toggle } from '@/components/ui/Toggle';
-import { Globe, Moon, Sun, Monitor, Bell, AlertCircle, Palette, Loader2 } from 'lucide-react';
+import { Globe, Moon, Sun, Monitor, Bell, AlertCircle, Palette } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const preferencesSchema = z.object({
@@ -78,17 +76,17 @@ export function Step3PreferencesForm({ onNext, onBack, initialData, isLoading, e
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 animate-in" noValidate>
       {/* Error Alert */}
       {error && (
-        <div className="flex items-center gap-3 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800" role="alert">
+        <div className="flex items-center gap-3 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 animate-in" role="alert">
           <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
           <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
         </div>
       )}
 
       {/* Language */}
-      <div>
+      <div className="animate-in" style={{ animationDelay: '50ms' }}>
         <Label htmlFor="language" className="flex items-center gap-2">
           <Globe className="w-4 h-4 text-slate-400" />
           Idioma <span className="text-red-500">*</span>
@@ -110,7 +108,7 @@ export function Step3PreferencesForm({ onNext, onBack, initialData, isLoading, e
           </SelectContent>
         </Select>
         {errors.language && (
-          <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1">
+          <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1 animate-in">
             <AlertCircle className="w-3 h-3" />
             {errors.language.message}
           </p>
@@ -140,7 +138,7 @@ export function Step3PreferencesForm({ onNext, onBack, initialData, isLoading, e
           </SelectContent>
         </Select>
         {errors.timezone && (
-          <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1">
+          <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1 animate-in">
             <AlertCircle className="w-3 h-3" />
             {errors.timezone.message}
           </p>
@@ -148,7 +146,7 @@ export function Step3PreferencesForm({ onNext, onBack, initialData, isLoading, e
       </div>
 
       {/* Theme */}
-      <div>
+      <div className="animate-in" style={{ animationDelay: '150ms' }}>
         <Label className="flex items-center gap-2">
           <Palette className="w-4 h-4 text-slate-400" />
           Tema
@@ -202,12 +200,13 @@ export function Step3PreferencesForm({ onNext, onBack, initialData, isLoading, e
             { key: 'email', label: 'Email', description: 'Receber notificações por email' },
             { key: 'push', label: 'Push', description: 'Notificações no navegador' },
             { key: 'whatsapp', label: 'WhatsApp', description: 'Notificações via WhatsApp (requer configuração)' },
-          ].map((notification) => {
+          ].map((notification, index) => {
             const fieldName = `notifications.${notification.key}` as const;
             return (
             <div
               key={notification.key}
-              className="flex items-center justify-between p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50"
+              className="flex items-center justify-between p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 animate-in"
+              style={{ animationDelay: `${250 + index * 50}ms` }}
             >
               <div className="flex items-center gap-3">
                 <input
@@ -233,7 +232,7 @@ export function Step3PreferencesForm({ onNext, onBack, initialData, isLoading, e
       </div>
 
       {/* Navigation Buttons */}
-      <div className="flex justify-between pt-4 border-t border-slate-200 dark:border-slate-700">
+      <div className="flex justify-between pt-4 border-t border-slate-200 dark:border-slate-700 animate-in" style={{ animationDelay: '400ms' }}>
         <Button
           type="button"
           variant="outline"

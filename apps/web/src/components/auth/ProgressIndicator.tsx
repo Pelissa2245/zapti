@@ -3,6 +3,7 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/utils';
+import { Check, Sparkles } from 'lucide-react';
 
 interface ProgressIndicatorProps {
   currentStep: number;
@@ -22,9 +23,11 @@ export function ProgressIndicator({
       {/* Progress Bar */}
       <div className="relative h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mb-8">
         <div
-          className="h-full bg-primary transition-all duration-300 ease-out"
+          className="h-full bg-gradient-to-r from-primary-500 to-primary-600 transition-all duration-500 ease-out relative overflow-hidden"
           style={{ width: `${((currentStep - 1) / (totalSteps - 1)) * 100}%` }}
-        />
+        >
+          <div className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+        </div>
       </div>
 
       {/* Step Labels */}
@@ -33,7 +36,6 @@ export function ProgressIndicator({
           const stepNumber = index + 1;
           const isCompleted = stepNumber < currentStep;
           const isCurrent = stepNumber === currentStep;
-          const isFuture = stepNumber > currentStep;
 
           return (
             <React.Fragment key={stepNumber}>
@@ -43,16 +45,16 @@ export function ProgressIndicator({
                   className={cn(
                     'relative z-10 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300',
                     isCompleted
-                      ? 'bg-primary text-white'
+                      ? 'bg-gradient-to-br from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/30'
                       : isCurrent
-                      ? 'bg-primary text-white ring-4 ring-primary/20'
+                      ? 'bg-gradient-to-br from-primary-500 to-primary-600 text-white ring-4 ring-primary/20 shadow-lg shadow-primary-500/30 animate-pulse-glow'
                       : 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500'
                   )}
                 >
                   {isCompleted ? (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
+                    <Check className="w-5 h-5" />
+                  ) : isCurrent ? (
+                    <Sparkles className="w-5 h-5 animate-pulse" />
                   ) : (
                     <span className="text-sm font-semibold">{stepNumber}</span>
                   )}
@@ -83,17 +85,17 @@ export function ProgressIndicator({
                     </p>
                   )}
                 </div>
-              </div>
 
-              {/* Connector line (except last) */}
-              {index < steps.length - 1 && (
-                <div
-                  className={cn(
-                    'absolute top-5 left-1/2 w-full h-0.5 -ml-1/2 transition-colors duration-300',
-                    isCompleted ? 'bg-primary' : 'bg-slate-200 dark:bg-slate-700'
-                  )}
-                />
-              )}
+                {/* Connector line (except last) */}
+                {index < steps.length - 1 && (
+                  <div
+                    className={cn(
+                      'absolute top-5 left-1/2 w-full h-0.5 -ml-1/2 transition-colors duration-300',
+                      isCompleted ? 'bg-primary' : 'bg-slate-200 dark:bg-slate-700'
+                    )}
+                  />
+                )}
+              </div>
             </React.Fragment>
           );
         })}

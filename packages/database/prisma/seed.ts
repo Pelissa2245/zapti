@@ -42,40 +42,27 @@ async function main() {
   }
 
   // Create demo tenant
-  const generateSlug = (name: string) => {
-    let slug = name
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
-    return slug.substring(0, 50);
-  };
+  let demoTenant = await prisma.tenant.findFirst({ where: { name: demoTenantName } });
+  if (!demoTenant) {
+    demoTenant = await prisma.tenant.create({
+      data: {
+        name: demoTenantName,
+        settings: JSON.stringify({
+          appearance: {
+            primaryColor: '#3B82F6',
+            companyName: 'Empresa Demo',
+          },
+          notifications: {
+            pushEnabled: true,
+            soundEnabled: true,
+          },
+        }),
+        ownerId: superadmin.id,
+      },
+    });
+  }
 
-  const demoTenantSlug = generateSlug(demoTenantName);
-  const demoTenant = await prisma.tenant.upsert({
-    where: { slug: demoTenantSlug },
-    update: {},
-    create: {
-      name: demoTenantName,
-      slug: demoTenantSlug,
-      settings: JSON.stringify({
-        appearance: {
-          primaryColor: '#3B82F6',
-          companyName: 'Empresa Demo',
-        },
-        notifications: {
-          pushEnabled: true,
-          soundEnabled: true,
-        },
-      }),
-      ownerId: superadmin.id,
-    },
-  });
-
-  console.log(`✅ Demo tenant: ${demoTenant.name} (${demoTenant.slug})`);
+  console.log(`✅ Demo tenant: ${demoTenant.name}`);
 
   // Create demo admin user
   let demoAdmin = await prisma.user.findUnique({ where: { email: demoAdminEmail } });

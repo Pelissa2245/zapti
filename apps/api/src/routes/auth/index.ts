@@ -13,7 +13,6 @@ const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   rememberMe: z.boolean().default(false),
-  tenantSlug: z.string().optional(),
   twoFactorToken: z.string().optional(),
 });
 
@@ -77,7 +76,6 @@ const bootstrapResponseSchema = z.object({
   tenant: z.object({
     id: z.string(),
     name: z.string(),
-    slug: z.string(),
     plan: z.string(),
   }),
   session: z.object({
@@ -98,7 +96,6 @@ const bootstrapSchema = z.object({
   confirmPassword: z.string(),
   tenantName: z.string().min(2, 'Nome da empresa deve ter pelo menos 2 caracteres').max(100),
   tenantFantasyName: z.string().max(100).optional(),
-  tenantSlug: z.string().min(2, 'Slug deve ter pelo menos 2 caracteres').max(50).regex(/^[a-z0-9-]+$/, 'Slug deve conter apenas letras minúsculas, números e hífens'),
   tenantTimezone: z.string().min(2, 'Selecione um fuso horário').default('America/Sao_Paulo'),
   tenantCountry: z.string().min(2, 'Selecione um país').default('BR'),
   tenantCurrency: z.string().min(3, 'Selecione uma moeda').default('BRL'),
@@ -117,7 +114,7 @@ export async function authRoutes(app: FastifyInstance) {
     schema: { body: loginSchemaJson },
     config: { rateLimit: { max: 10, timeWindow: 60 * 1000 } },
   }, async (request, reply) => {
-    const { email, password, rememberMe, tenantSlug, twoFactorToken } = request.body as z.infer<typeof loginSchema>;
+    const { email, password, rememberMe, twoFactorToken } = request.body as z.infer<typeof loginSchema>;
     const ip = request.ip;
     const userAgent = request.headers['user-agent'] || '';
 
@@ -142,16 +139,10 @@ export async function authRoutes(app: FastifyInstance) {
 
     // Determine tenant
     let tenant;
-    if (tenantSlug) {
-      const userTenant = user.tenants.find((ut: any) => ut.tenant.slug === tenantSlug);
-      if (!userTenant) {
-        return reply.status(403).send({ error: { code: 'NO_TENANT_ACCESS', message: 'Sem acesso a este tenant' } });
-      }
-      tenant = userTenant.tenant;
-    } else if (user.tenants.length === 1) {
+    if (user.tenants.length === 1) {
       tenant = user.tenants[0].tenant;
     } else {
-      return reply.status(400).send({ error: { code: 'TENANT_REQUIRED', message: 'Múltiplos tenants, informe o tenantSlug' } });
+      return reply.status(400).send({ error: { code: 'TENANT_REQUIRED', message: 'Usuário sem tenant único associado' } });
     }
 
     if (tenant.status !== 'ACTIVE') {
@@ -209,7 +200,7 @@ export async function authRoutes(app: FastifyInstance) {
 
     return {
       user: { id: user.id, name: user.name, email: user.email, avatarUrl: user.avatarUrl, isSuperadmin: user.isSuperadmin, onboardingCompleted: user.onboardingCompleted },
-      tenant: { id: tenant.id, name: tenant.name, slug: tenant.slug, plan: tenant.plan },
+      tenant: { id: tenant.id, name: tenant.name, plan: tenant.plan },
       session: { id: session.id, expiresAt: session.expiresAt },
       accessToken,
       refreshToken,
@@ -251,10 +242,9 @@ export async function authRoutes(app: FastifyInstance) {
       name,
       email,
       password,
-      confirmPassword,
+      confirmPassword: _confirmPassword,
       tenantName,
       tenantFantasyName,
-      tenantSlug,
       tenantTimezone,
       tenantCountry,
       tenantCurrency,
@@ -279,25 +269,6 @@ export async function authRoutes(app: FastifyInstance) {
         throw new Error('BOOTSTRAP_RACE_CONDITION');
       }
 
-      // Create tenant
-      const slug = tenantSlug || tenantName
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[̀-ͯ]/g, '')
-        .replace(/[^a-z0-9\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '')
-        .substring(0, 50);
-
-      // Ensure unique slug
-      let finalSlug = slug;
-      let counter = 1;
-      while (await tx.tenant.findUnique({ where: { slug: finalSlug } })) {
-        finalSlug = `${slug}-${counter}`;
-        counter++;
-      }
-
       // Create user as superadmin first
       const user = await tx.user.create({
         data: {
@@ -315,7 +286,6 @@ export async function authRoutes(app: FastifyInstance) {
       const tenant = await tx.tenant.create({
         data: {
           name: tenantName,
-          slug: finalSlug,
           settings: JSON.stringify({
             fantasyName: tenantFantasyName,
             timezone: tenantTimezone || 'America/Sao_Paulo',
@@ -375,7 +345,7 @@ export async function authRoutes(app: FastifyInstance) {
 
     return {
       user: { id: result.user.id, name: result.user.name, email: result.user.email, avatarUrl: result.user.avatarUrl, isSuperadmin: result.user.isSuperadmin, onboardingCompleted: result.user.onboardingCompleted },
-      tenant: { id: result.tenant.id, name: result.tenant.name, slug: result.tenant.slug, plan: result.tenant.plan },
+      tenant: { id: result.tenant.id, name: result.tenant.name, plan: result.tenant.plan },
       session: { id: sessionData.id, expiresAt: sessionData.expiresAt },
       accessToken,
       refreshToken,
@@ -438,7 +408,6 @@ app.post('/refresh', { schema: { body: refreshSchemaJson } }, async (request, re
         tenant: {
           id: session.tenant.id,
           name: session.tenant.name,
-          slug: session.tenant.slug,
           plan: session.tenant.plan,
         },
         session: { id: session.id, expiresAt: session.expiresAt },
@@ -494,7 +463,7 @@ app.post('/refresh', { schema: { body: refreshSchemaJson } }, async (request, re
         where: { userId: user.id, tenant: { status: 'ACTIVE' } },
         select: {
           role: true,
-          tenant: { select: { id: true, name: true, slug: true, plan: true } },
+          tenant: { select: { id: true, name: true, plan: true } },
         },
         orderBy: { joinedAt: 'asc' },
       }),
@@ -513,7 +482,6 @@ app.post('/refresh', { schema: { body: refreshSchemaJson } }, async (request, re
         tenants: userTenants.map((ut) => ({
           id: ut.tenant.id,
           name: ut.tenant.name,
-          slug: ut.tenant.slug,
           plan: ut.tenant.plan,
           role: ut.role,
         })),
@@ -521,7 +489,6 @@ app.post('/refresh', { schema: { body: refreshSchemaJson } }, async (request, re
       tenant: {
         id: request.tenant!.id,
         name: request.tenant!.name,
-        slug: request.tenant!.slug,
         plan: request.tenant!.plan,
         settings: request.tenant!.settings,
       },
@@ -536,19 +503,6 @@ app.post('/refresh', { schema: { body: refreshSchemaJson } }, async (request, re
   app.get('/onboarding-status', async (request, reply) => {
     const user = request.user!;
     return { onboardingCompleted: user.onboardingCompleted };
-  });
-
-  // GET /auth/check-slug - Check if slug is available (public endpoint for onboarding)
-  app.get('/check-slug', async (request, reply) => {
-    const { slug } = request.query as { slug: string };
-    if (!slug || slug.length < 2) {
-      return { available: false, message: 'Slug deve ter pelo menos 2 caracteres' };
-    }
-    const existing = await prisma.tenant.findUnique({ where: { slug } });
-    if (existing) {
-      return { available: false, message: 'Este slug já está em uso' };
-    }
-    return { available: true, message: 'Slug disponível' };
   });
 
   const completeOnboardingSchema = z.object({

@@ -12,7 +12,7 @@ interface ToggleProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 export const Toggle = React.forwardRef<HTMLButtonElement, ToggleProps>(
-  ({ className, checked, onCheckedChange, label, disabled, ...props }, ref) => {
+  ({ checked, onCheckedChange, label, disabled, ...props }, ref) => {
     return (
       <div className="flex items-center gap-3">
         <button

@@ -27,7 +27,6 @@ interface LoginResponse {
   tenant: {
     id: string;
     name: string;
-    slug: string;
     plan: string;
   };
   session: {

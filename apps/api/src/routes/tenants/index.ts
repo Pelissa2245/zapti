@@ -51,10 +51,7 @@ export async function tenantRoutes(app: FastifyInstance) {
     if (status) where.status = status;
     if (plan) where.plan = plan;
     if (q) {
-      where.OR = [
-        { name: { contains: q, mode: 'insensitive' } },
-        { slug: { contains: q, mode: 'insensitive' } },
-      ];
+      where.name = { contains: q, mode: 'insensitive' };
     }
 
     const [tenants, total] = await Promise.all([
@@ -75,7 +72,7 @@ export async function tenantRoutes(app: FastifyInstance) {
   });
 
   // GET /tenants/stats - Platform statistics
-  app.get('/stats', async (request) => {
+  app.get('/stats', async () => {
     const [
       totalTenants,
       activeTenants,
@@ -139,29 +136,6 @@ export async function tenantRoutes(app: FastifyInstance) {
   app.post('/', { schema: { body: createTenantSchemaJson } }, async (request, reply) => {
     const { name, plan, ownerEmail, ownerName, ownerPassword } = request.body as z.infer<typeof createTenantSchema>;
 
-    // Generate slug from tenant name
-    const generateSlug = (name: string) => {
-      const slug = name
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[̀-ͯ]/g, '')
-        .replace(/[^a-z0-9\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '');
-      return slug.substring(0, 50);
-    };
-
-    const baseSlug = generateSlug(name);
-    let slug = baseSlug;
-    let counter = 1;
-
-    // Check if slug exists and find unique one
-    while (await prisma.tenant.findUnique({ where: { slug } })) {
-      slug = `${baseSlug}-${counter}`;
-      counter++;
-    }
-
     // Create owner user
     const { hashPassword, generateSecureToken } = await import('@zapti/shared/auth');
     const password = ownerPassword || generateSecureToken(16);
@@ -174,7 +148,6 @@ export async function tenantRoutes(app: FastifyInstance) {
     const tenant = await prisma.tenant.create({
       data: {
         name,
-        slug,
         plan,
         ownerId: owner.id,
         settings: JSON.stringify({}),
@@ -336,24 +309,6 @@ export async function tenantRoutes(app: FastifyInstance) {
 
     return { data: logs, pagination: { page: Number(page), limit: Number(limit), total, totalPages: Math.ceil(total / Number(limit)) } };
   });
-}
-
-function getPlanLimits(plan: string) {
-  return {
-    FREE: { users: 3, instances: 1, conversations: 1000, messages: 10000, storage: 1 },
-    STARTER: { users: 10, instances: 3, conversations: 10000, messages: 100000, storage: 5 },
-    PRO: { users: 50, instances: 10, conversations: 100000, messages: 1000000, storage: 20 },
-    ENTERPRISE: { users: 1000, instances: 50, conversations: 1000000, messages: 10000000, storage: 100 },
-  }[plan] || { users: 3, instances: 1, conversations: 1000, messages: 10000, storage: 1 };
-}
-
-function getPlanFeatures(plan: string) {
-  return {
-    FREE: { flows: true, automations: true, api: false, webhooks: false, customBranding: false, sso: false, auditLogs: false, backups: false },
-    STARTER: { flows: true, automations: true, api: true, webhooks: true, customBranding: false, sso: false, auditLogs: true, backups: true },
-    PRO: { flows: true, automations: true, api: true, webhooks: true, customBranding: true, sso: false, auditLogs: true, backups: true },
-    ENTERPRISE: { flows: true, automations: true, api: true, webhooks: true, customBranding: true, sso: true, auditLogs: true, backups: true },
-  }[plan] || { flows: true, automations: true, api: false, webhooks: false, customBranding: false, sso: false, auditLogs: false, backups: false };
 }
 
 async function logAudit(request: any, action: string, metadata: Record<string, any>) {

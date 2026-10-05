@@ -62,8 +62,6 @@ export interface UserTenant extends BaseEntity {
 // Tenant types
 export interface Tenant extends BaseEntity {
   name: string;
-  slug: string;
-  domain?: string;
   settings: TenantSettings;
   status: TenantStatus;
   plan?: string;

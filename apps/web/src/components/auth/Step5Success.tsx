@@ -14,14 +14,13 @@ interface Step5SuccessProps {
   };
   tenantData: {
     name: string;
-    slug: string;
   };
   onComplete: () => void;
   isLoading?: boolean;
   completed?: boolean;
 }
 
-export function Step5Success({ adminData, tenantData, onComplete, isLoading, completed }: Step5SuccessProps) {
+export function Step5Success({ adminData, tenantData, onComplete, isLoading }: Step5SuccessProps) {
   const router = useRouter();
 
   const handleGoToDashboard = () => {
@@ -93,14 +92,6 @@ export function Step5Success({ adminData, tenantData, onComplete, isLoading, com
                 <Building2 className="w-4 h-4 text-slate-500" />
               </div>
               <span className="text-slate-600 dark:text-slate-400">{tenantData.name}</span>
-            </div>
-            <div className="flex items-center gap-3 text-sm">
-              <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                <Zap className="w-4 h-4 text-slate-500" />
-              </div>
-              <span className="font-mono text-slate-600 dark:text-slate-400">
-                https://zapti.app/{tenantData.slug}
-              </span>
             </div>
             <div className="flex items-center gap-3 text-sm">
               <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center">

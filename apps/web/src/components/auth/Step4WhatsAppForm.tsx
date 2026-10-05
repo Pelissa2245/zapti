@@ -9,8 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Label } from '@/components/ui/Label';
 import { Input } from '@/components/ui/Input';
 import { Toggle } from '@/components/ui/Toggle';
-import { MessageSquare, Loader2, AlertCircle, CheckCircle2, HelpCircle, Zap, Shield, ExternalLink } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { MessageSquare, Loader2, AlertCircle, CheckCircle2, HelpCircle, Shield, ExternalLink, Eye, EyeOff } from 'lucide-react';
 
 const whatsappSchema = z.object({
   configureWhatsApp: z.boolean().default(false),
@@ -98,18 +97,18 @@ export function Step4WhatsAppForm({ onNext, onBack, onSkip, initialData, isLoadi
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 animate-in" noValidate>
       {/* Error Alert */}
       {error && (
-        <div className="flex items-center gap-3 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800" role="alert">
+        <div className="flex items-center gap-3 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 animate-in" role="alert">
           <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
           <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
         </div>
       )}
 
       {/* WhatsApp Toggle */}
-      <div className="p-4 rounded-xl border-2 bg-slate-50 dark:bg-slate-800/50 transition-colors duration-200"
-        style={{ borderColor: configureWhatsApp ? 'hsl(var(--primary))' : 'hsl(var(--border))' }}
+      <div className="p-4 rounded-xl border-2 bg-slate-50 dark:bg-slate-800/50 transition-colors duration-200 animate-in"
+        style={{ borderColor: configureWhatsApp ? 'hsl(var(--primary))' : 'hsl(var(--border))', animationDelay: '50ms' }}
       >
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3 flex-1">
@@ -134,145 +133,133 @@ export function Step4WhatsAppForm({ onNext, onBack, onSkip, initialData, isLoadi
 
       {/* WhatsApp Config Fields */}
       {configureWhatsApp && (
-        <div className="space-y-6 animate-slide-in">
-          <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+        <div className="space-y-6 animate-slide-in animate-in" style={{ animationDelay: '100ms' }}>
+          <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 animate-in" style={{ animationDelay: '150ms' }}>
             <div className="flex items-center gap-2 mb-4">
               <Shield className="w-5 h-5 text-primary" />
               <h4 className="font-medium text-slate-900 dark:text-white">Configuração da Evolution API</h4>
             </div>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-              A Evolution API é necessária para a integração com WhatsApp.
-              <a href="https://doc.evolution-api.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
-                Ver documentação
-                <ExternalLink className="w-3 h-3" />
-              </a>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+              Preencha os campos abaixo para conectar sua instância da Evolution API
             </p>
-          </div>
 
-          {/* Evolution API URL */}
-          <div>
-            <Label htmlFor="evolutionApiUrl" className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-slate-400" />
-              URL da Evolution API <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="evolutionApiUrl"
-              type="url"
-              placeholder="https://sua-evolution-api.com"
-              {...register('evolutionApiUrl')}
-              error={errors.evolutionApiUrl?.message}
-              disabled={isLoading}
-              className="mt-1.5"
-            />
-            {errors.evolutionApiUrl && (
-              <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" />
-                {errors.evolutionApiUrl.message}
-              </p>
-            )}
-            <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
-              URL base da sua instância Evolution API (ex: https://api.seudominio.com)
-            </p>
-          </div>
-
-          {/* Evolution API Key */}
-          <div>
-            <Label htmlFor="evolutionApiKey" className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-slate-400" />
-              API Key <span className="text-red-500">*</span>
-            </Label>
-            <div className="relative mt-1.5">
+            {/* Evolution API URL */}
+            <div className="animate-in" style={{ animationDelay: '200ms' }}>
+              <Label htmlFor="evolutionApiUrl" className="flex items-center gap-2">
+                <ExternalLink className="w-4 h-4 text-slate-400" />
+                URL da API <span className="text-red-500">*</span>
+              </Label>
               <Input
-                id="evolutionApiKey"
-                type={showKey ? 'text' : 'password'}
-                placeholder="Sua API Key da Evolution API"
-                {...register('evolutionApiKey')}
-                error={errors.evolutionApiKey?.message}
+                id="evolutionApiUrl"
+                type="url"
+                placeholder="https://sua-evolution-api.com"
+                {...register('evolutionApiUrl')}
+                error={errors.evolutionApiUrl?.message}
                 disabled={isLoading}
-                className="pr-12"
+                className="mt-1.5"
               />
-              <button
+              {errors.evolutionApiUrl && (
+                <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1 animate-in">
+                  <AlertCircle className="w-3 h-3" />
+                  {errors.evolutionApiUrl.message}
+                </p>
+              )}
+              <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                URL base da sua instância Evolution API (ex: https://api.seudominio.com)
+              </p>
+            </div>
+
+            {/* Evolution API Key */}
+            <div className="animate-in" style={{ animationDelay: '250ms' }}>
+              <Label htmlFor="evolutionApiKey" className="flex items-center gap-2">
+                <Shield className="w-4 h-4 text-slate-400" />
+                API Key <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative mt-1.5">
+                <Input
+                  id="evolutionApiKey"
+                  type={showKey ? 'text' : 'password'}
+                  placeholder="Sua API Key da Evolution API"
+                  {...register('evolutionApiKey')}
+                  error={errors.evolutionApiKey?.message}
+                  disabled={isLoading}
+                  className="pr-12"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowKey(!showKey)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                  aria-label={showKey ? 'Ocultar chave' : 'Mostrar chave'}
+                >
+                  {showKey ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+              {errors.evolutionApiKey && (
+                <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1 animate-in">
+                  <AlertCircle className="w-3 h-3" />
+                  {errors.evolutionApiKey.message}
+                </p>
+              )}
+            </div>
+
+            {/* Instance Name */}
+            <div className="animate-in" style={{ animationDelay: '300ms' }}>
+              <Label htmlFor="instanceName" className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-slate-400" />
+                Nome da instância <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="instanceName"
+                type="text"
+                placeholder="zapti-principal"
+                {...register('instanceName')}
+                error={errors.instanceName?.message}
+                disabled={isLoading}
+                className="mt-1.5"
+              />
+              {errors.instanceName && (
+                <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1 animate-in">
+                  <AlertCircle className="w-3 h-3" />
+                  {errors.instanceName.message}
+                </p>
+              )}
+              <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                Nome da instância WhatsApp na Evolution API (será criada se não existir)
+              </p>
+            </div>
+
+            {/* Test Connection */}
+            <div className="animate-in" style={{ animationDelay: '350ms' }}>
+              <Button
                 type="button"
-                onClick={() => setShowKey(!showKey)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                aria-label={showKey ? 'Ocultar chave' : 'Mostrar chave'}
+                variant="outline"
+                onClick={testConnection}
+                disabled={isLoading || connectionStatus === 'checking' || !evolutionApiUrl || !evolutionApiKey || !instanceName}
+                className="w-full gap-2"
               >
-                {showKey ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </div>
-            {errors.evolutionApiKey && (
-              <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" />
-                {errors.evolutionApiKey.message}
-              </p>
-            )}
-          </div>
-
-          {/* Instance Name */}
-          <div>
-            <Label htmlFor="instanceName" className="flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-slate-400" />
-              Nome da instância <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="instanceName"
-              type="text"
-              placeholder="zapti-principal"
-              {...register('instanceName')}
-              error={errors.instanceName?.message}
-              disabled={isLoading}
-              className="mt-1.5"
-            />
-            {errors.instanceName && (
-              <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" />
-                {errors.instanceName.message}
-              </p>
-            )}
-            <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
-              Nome da instância WhatsApp na Evolution API (será criada se não existir)
-            </p>
-          </div>
-
-          {/* Connection Test */}
-          <div className="flex items-center gap-4 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-            <div className="flex-1">
-              <p className="font-medium text-slate-900 dark:text-white">Testar conexão</p>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                Verifica se a Evolution API está acessível e a instância pode ser criada
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={testConnection}
-              disabled={isLoading || !evolutionApiUrl || !evolutionApiKey || !instanceName || connectionStatus === 'checking'}
-              isLoading={connectionStatus === 'checking'}
-              className="gap-2"
-            >
-              {connectionStatus === 'connected' && (
-                <>
-                  <CheckCircle2 className="w-4 h-4 text-green-500" />
-                  Conectado
-                </>
-              )}
+                {connectionStatus === 'checking' && <Loader2 className="w-4 h-4 animate-spin" />}
+                {connectionStatus === 'connected' && <CheckCircle2 className="w-4 h-4" />}
+                {connectionStatus === 'error' && <AlertCircle className="w-4 h-4" />}
+                <span>
+                  {connectionStatus === 'checking' && 'Testando conexão...'}
+                  {connectionStatus === 'connected' && 'Conexão bem-sucedida!'}
+                  {connectionStatus === 'error' && 'Erro na conexão'}
+                  {connectionStatus === 'idle' && 'Testar conexão'}
+                </span>
+              </Button>
               {connectionStatus === 'error' && (
-                <>
-                  <AlertCircle className="w-4 h-4 text-red-500" />
-                  Erro
-                </>
+                <p className="mt-2 text-sm text-red-500 text-center animate-in">
+                  Verifique se a URL da API, a chave e o nome da instância estão corretos.
+                </p>
               )}
-              {(connectionStatus === 'idle' || connectionStatus === 'checking') && (
-                <>Testar conexão</>
-              )}
-            </Button>
+            </div>
           </div>
         </div>
       )}
 
       {/* Info Box */}
       {!configureWhatsApp && (
-        <div className="flex items-start gap-3 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+        <div className="flex items-start gap-3 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 animate-in" style={{ animationDelay: '100ms' }}>
           <HelpCircle className="w-5 h-5 text-slate-400 flex-shrink-0 mt-0.5" />
           <div className="text-sm text-slate-600 dark:text-slate-400">
             <p className="font-medium">Configuração opcional</p>
@@ -285,7 +272,7 @@ export function Step4WhatsAppForm({ onNext, onBack, onSkip, initialData, isLoadi
       )}
 
       {/* Navigation Buttons */}
-      <div className="flex justify-between pt-4 border-t border-slate-200 dark:border-slate-700">
+      <div className="flex justify-between pt-4 border-t border-slate-200 dark:border-slate-700 animate-in" style={{ animationDelay: '400ms' }}>
         <Button
           type="button"
           variant="outline"
@@ -324,6 +311,3 @@ export function Step4WhatsAppForm({ onNext, onBack, onSkip, initialData, isLoadi
     </form>
   );
 }
-
-// Need to import Eye/EyeOff
-import { Eye, EyeOff } from 'lucide-react';

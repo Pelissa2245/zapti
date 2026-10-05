@@ -62,8 +62,6 @@ model User {
 model Tenant {
   id          String   @id @default(cuid())
   name        String
-  slug        String   @unique
-  domain      String?  @unique
   settings    String   @default("{}") // JSON as string for SQLite
   status      String   @default("ACTIVE") // ACTIVE, SUSPENDED, DELETED
   plan        String?  @default("free")
@@ -92,7 +90,6 @@ model Tenant {
   teams       Team[]      @relation("TeamTenant")
   ticketComments TicketComment[] @relation("TicketCommentTenant")
 
-  @@index([slug])
   @@index([status])
   @@index([ownerId])
 }

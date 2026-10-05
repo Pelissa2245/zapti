@@ -10,7 +10,7 @@ import { Step2TenantForm } from './Step2TenantForm';
 import { Step3PreferencesForm } from './Step3PreferencesForm';
 import { Step4WhatsAppForm } from './Step4WhatsAppForm';
 import { Step5Success } from './Step5Success';
-import { Zap } from 'lucide-react';
+import { Zap, Shield, Users, Smartphone } from 'lucide-react';
 
 const WIZARD_STEPS = [
   { label: 'Administrador', description: 'Seus dados de acesso' },
@@ -30,7 +30,6 @@ interface FormData {
   // Step 2
   tenantName?: string;
   tenantFantasyName?: string;
-  tenantSlug?: string;
   tenantTimezone?: string;
   tenantCountry?: string;
   tenantCurrency?: string;
@@ -59,8 +58,6 @@ export function OnboardingWizard() {
   const [formData, setFormData] = React.useState<FormData>({});
   const [completed, setCompleted] = React.useState(false);
 
-  const totalSteps = 5;
-
   const updateFormData = (data: Partial<FormData>) => {
     setFormData(prev => ({ ...prev, ...data }));
   };
@@ -73,7 +70,6 @@ export function OnboardingWizard() {
   const handleStep2Submit = (data: {
     name: string;
     fantasyName?: string;
-    slug?: string;
     timezone?: string;
     country?: string;
     currency?: string;
@@ -82,7 +78,6 @@ export function OnboardingWizard() {
     updateFormData({
       tenantName: data.name,
       tenantFantasyName: data.fantasyName,
-      tenantSlug: data.slug,
       tenantTimezone: data.timezone,
       tenantCountry: data.country,
       tenantCurrency: data.currency,
@@ -141,7 +136,6 @@ export function OnboardingWizard() {
         confirmPassword: formData.adminPassword,
         tenantName: formData.tenantName,
         tenantFantasyName: formData.tenantFantasyName,
-        tenantSlug: formData.tenantSlug,
         tenantTimezone: formData.tenantTimezone || formData.timezone || 'America/Sao_Paulo',
         tenantCountry: formData.tenantCountry || 'BR',
         tenantCurrency: formData.tenantCurrency || 'BRL',
@@ -211,10 +205,9 @@ export function OnboardingWizard() {
             onNext={handleStep2Submit}
             onBack={prevStep}
             initialData={
-              formData.tenantName || formData.tenantFantasyName || formData.tenantSlug ? {
+              formData.tenantName || formData.tenantFantasyName ? {
                 name: formData.tenantName,
                 fantasyName: formData.tenantFantasyName,
-                slug: formData.tenantSlug,
                 timezone: formData.tenantTimezone,
                 country: formData.tenantCountry,
                 currency: formData.tenantCurrency,
@@ -264,7 +257,7 @@ export function OnboardingWizard() {
         return (
           <Step5Success
             adminData={{ name: formData.adminName || '', email: formData.adminEmail || '' }}
-            tenantData={{ name: formData.tenantName || '', slug: formData.tenantSlug || '' }}
+            tenantData={{ name: formData.tenantName || '' }}
             onComplete={handleComplete}
             isLoading={isLoading}
             completed={completed}
@@ -276,19 +269,54 @@ export function OnboardingWizard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-2xl">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center px-4 py-12 relative overflow-hidden">
+      {/* Enhanced Background Animation */}
+      <div className="onboarding-bg" aria-hidden="true">
+        {/* Gradient mesh background */}
+        <div className="absolute inset-0 bg-gradient-mesh" />
+        {/* Animated grid pattern */}
+        <div className="absolute inset-0 bg-grid-pattern" />
+        {/* Floating particles */}
+        <div className="particle particle-1" />
+        <div className="particle particle-2" />
+        <div className="particle particle-3" />
+        <div className="particle particle-4" />
+        <div className="particle particle-5" />
+        <div className="particle particle-6" />
+        {/* Floating orbs */}
+        <div className="floating-orb floating-orb-1" />
+        <div className="floating-orb floating-orb-2" />
+        <div className="floating-orb floating-orb-3" />
+      </div>
+
+      <div className="w-full max-w-2xl relative z-10">
         {/* Logo & Header */}
-        <div className="text-center mb-8">
-          <div className="mx-auto mb-6 w-16 h-16 rounded-2xl bg-primary-600 flex items-center justify-center">
+        <div className="text-center mb-8 animate-in">
+          <div className="mx-auto mb-6 w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-600 to-primary-500 flex items-center justify-center shadow-lg shadow-primary-500/25 dark:shadow-primary-500/30 animate-pulse-glow">
             <Zap className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
-            Bem-vindo ao ZapTI
+          <h1 className="text-4xl sm:text-5xl font-bold text-slate-900 dark:text-white tracking-tight">
+            Bem-vindo ao <span className="bg-gradient-to-r from-primary-600 to-purple-600 bg-clip-text text-transparent">ZapTI</span>
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-2">
-            Configure sua conta e empresa em poucos passos
+          <p className="text-slate-500 dark:text-slate-400 mt-3 text-lg max-w-md mx-auto leading-relaxed">
+            Configure sua conta e empresa em poucos passos — simples, rápido e seguro
           </p>
+        </div>
+
+        {/* Features preview */}
+        <div className="flex items-center justify-center gap-6 mb-8 animate-in" style={{ animationDelay: '100ms' }}>
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 backdrop-blur-sm">
+            <Shield className="w-4 h-4 text-primary-600 dark:text-primary-400" />
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Seguro</span>
+          </div>
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 backdrop-blur-sm">
+            <Users className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Multi-tenant</span>
+          </div>
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 backdrop-blur-sm">
+            <Smartphone className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">WhatsApp</span>
+          </div>
         </div>
 
         {/* Progress Indicator */}
@@ -299,14 +327,22 @@ export function OnboardingWizard() {
         />
 
         {/* Wizard Form */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 sm:p-8">
+        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-200/50 dark:border-slate-700/50 p-6 sm:p-8 animate-in" style={{ animationDelay: '200ms' }}>
           {error && (
-            <div className="mb-6 p-4 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm">
+            <div className="mb-6 p-4 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm animate-in">
               {error}
             </div>
           )}
           {renderStep()}
         </div>
+
+        {/* Footer */}
+        <p className="text-center text-slate-400 dark:text-slate-500 text-sm mt-6 animate-in" style={{ animationDelay: '300ms' }}>
+          Ao continuar, você concorda com nossos{' '}
+          <a href="/terms" className="text-primary-600 dark:text-primary-400 hover:underline font-medium">Termos de Uso</a>{' '}
+          e{' '}
+          <a href="/privacy" className="text-primary-600 dark:text-primary-400 hover:underline font-medium">Política de Privacidade</a>
+        </p>
       </div>
     </div>
   );

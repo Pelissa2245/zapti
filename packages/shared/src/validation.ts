@@ -9,7 +9,6 @@ export const uuidSchema = z.string().uuid('ID inválido');
 export const emailSchema = z.string().email('Email inválido');
 export const phoneSchema = z.string().regex(/^\+?[1-9]\d{1,14}$/, 'Telefone inválido (formato E.164)');
 export const urlSchema = z.string().url('URL inválida');
-export const slugSchema = z.string().min(2).max(50).regex(/^[a-z0-9-]+$/, 'Slug deve conter apenas letras minúsculas, números e hífens');
 
 // Pagination
 export const paginationSchema = z.object({

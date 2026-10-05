@@ -89,7 +89,7 @@ export async function getAuditLogs(params: {
       take: limit,
       include: {
         user: { select: { id: true, name: true, email: true } },
-        tenant: { select: { id: true, name: true, slug: true } },
+        tenant: { select: { id: true, name: true } },
       },
     }),
     prisma.auditLog.count({ where }),
@@ -186,7 +186,7 @@ export async function exportAuditLogs(params: {
     take: 10000, // Limit export
     include: {
       user: { select: { id: true, name: true, email: true } },
-      tenant: { select: { id: true, name: true, slug: true } },
+      tenant: { select: { id: true, name: true } },
     },
   });
 
