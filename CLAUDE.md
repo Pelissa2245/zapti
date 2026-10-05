@@ -29,8 +29,8 @@ O ZapTI roda em um servidor próprio na rede local:
 | Item | Valor |
 |---|---|
 | IP do servidor | `192.168.1.193` |
-| Usuário SSH | `<PREENCHER: usuário do servidor>` |
-| Pasta do projeto no servidor | `<PREENCHER: ex. /opt/zapti>` |
+| Usuário SSH | `root` |
+| Pasta do projeto no servidor | `/opt/zapti` |
 | Autenticação | Chave SSH. **Não pede senha.** |
 
 Se o usuário SSH ou a pasta do servidor ainda estiverem como `<PREENCHER>`, **pergunte ao usuário uma vez**, e peça para ele atualizar esta tabela. Não invente valores.
