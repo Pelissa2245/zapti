@@ -21,7 +21,7 @@ const whatsappSchema = z.object({
 type WhatsAppFormData = z.infer<typeof whatsappSchema>;
 
 interface Step4WhatsAppFormProps {
-  onNext: (data: WhatsAppFormData) => void;
+  onNext: (data: { configureWhatsApp: boolean; evolutionApiUrl?: string; evolutionApiKey?: string; instanceName?: string }) => void;
   onBack: () => void;
   onSkip: () => void;
   initialData?: Partial<WhatsAppFormData>;
@@ -97,27 +97,27 @@ export function Step4WhatsAppForm({ onNext, onBack, onSkip, initialData, isLoadi
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 animate-in" noValidate>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 animate-in" noValidate>
       {/* Error Alert */}
       {error && (
-        <div className="flex items-center gap-3 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 animate-in" role="alert">
-          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 animate-in" role="alert">
+          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
           <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
         </div>
       )}
 
       {/* WhatsApp Toggle */}
-      <div className="p-4 rounded-xl border-2 bg-slate-50 dark:bg-slate-800/50 transition-colors duration-200 animate-in"
+      <div className="p-3 rounded-xl border-2 bg-slate-50 dark:bg-slate-800/50 transition-colors duration-200 animate-in"
         style={{ borderColor: configureWhatsApp ? 'hsl(var(--primary))' : 'hsl(var(--border))', animationDelay: '50ms' }}
       >
         <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3 flex-1">
-            <div className="w-12 h-12 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-              <MessageSquare className="w-6 h-6 text-green-600 dark:text-green-400" />
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0">
+              <MessageSquare className="w-5 h-5 text-green-600 dark:text-green-400" />
             </div>
-            <div>
-              <h3 className="font-semibold text-slate-900 dark:text-white">Conectar WhatsApp</h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+            <div className="min-w-0">
+              <h3 className="font-semibold text-slate-900 dark:text-white truncate">Conectar WhatsApp</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 truncate">
                 Configure a integração com a Evolution API para enviar e receber mensagens
               </p>
             </div>
@@ -133,19 +133,19 @@ export function Step4WhatsAppForm({ onNext, onBack, onSkip, initialData, isLoadi
 
       {/* WhatsApp Config Fields */}
       {configureWhatsApp && (
-        <div className="space-y-6 animate-slide-in animate-in" style={{ animationDelay: '100ms' }}>
-          <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 animate-in" style={{ animationDelay: '150ms' }}>
+        <div className="space-y-5 animate-slide-in animate-in" style={{ animationDelay: '100ms' }}>
+          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 animate-in" style={{ animationDelay: '150ms' }}>
             <div className="flex items-center gap-2 mb-4">
               <Shield className="w-5 h-5 text-primary" />
               <h4 className="font-medium text-slate-900 dark:text-white">Configuração da Evolution API</h4>
             </div>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
               Preencha os campos abaixo para conectar sua instância da Evolution API
             </p>
 
             {/* Evolution API URL */}
             <div className="animate-in" style={{ animationDelay: '200ms' }}>
-              <Label htmlFor="evolutionApiUrl" className="flex items-center gap-2">
+              <Label htmlFor="evolutionApiUrl" className="flex items-center gap-2 text-sm font-medium">
                 <ExternalLink className="w-4 h-4 text-slate-400" />
                 URL da API <span className="text-red-500">*</span>
               </Label>
@@ -171,7 +171,7 @@ export function Step4WhatsAppForm({ onNext, onBack, onSkip, initialData, isLoadi
 
             {/* Evolution API Key */}
             <div className="animate-in" style={{ animationDelay: '250ms' }}>
-              <Label htmlFor="evolutionApiKey" className="flex items-center gap-2">
+              <Label htmlFor="evolutionApiKey" className="flex items-center gap-2 text-sm font-medium">
                 <Shield className="w-4 h-4 text-slate-400" />
                 API Key <span className="text-red-500">*</span>
               </Label>
@@ -204,7 +204,7 @@ export function Step4WhatsAppForm({ onNext, onBack, onSkip, initialData, isLoadi
 
             {/* Instance Name */}
             <div className="animate-in" style={{ animationDelay: '300ms' }}>
-              <Label htmlFor="instanceName" className="flex items-center gap-2">
+              <Label htmlFor="instanceName" className="flex items-center gap-2 text-sm font-medium">
                 <MessageSquare className="w-4 h-4 text-slate-400" />
                 Nome da instância <span className="text-red-500">*</span>
               </Label>
@@ -259,7 +259,7 @@ export function Step4WhatsAppForm({ onNext, onBack, onSkip, initialData, isLoadi
 
       {/* Info Box */}
       {!configureWhatsApp && (
-        <div className="flex items-start gap-3 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 animate-in" style={{ animationDelay: '100ms' }}>
+        <div className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 animate-in" style={{ animationDelay: '100ms' }}>
           <HelpCircle className="w-5 h-5 text-slate-400 flex-shrink-0 mt-0.5" />
           <div className="text-sm text-slate-600 dark:text-slate-400">
             <p className="font-medium">Configuração opcional</p>
@@ -272,32 +272,32 @@ export function Step4WhatsAppForm({ onNext, onBack, onSkip, initialData, isLoadi
       )}
 
       {/* Navigation Buttons */}
-      <div className="flex justify-between pt-4 border-t border-slate-200 dark:border-slate-700 animate-in" style={{ animationDelay: '400ms' }}>
+      <div className="flex flex-col sm:flex-row justify-between gap-3 pt-3 border-t border-slate-200 dark:border-slate-700 animate-in" style={{ animationDelay: '400ms' }}>
         <Button
           type="button"
           variant="outline"
           onClick={onBack}
           disabled={isLoading}
-          className="gap-2"
+          className="w-full sm:w-auto gap-2"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
           Voltar
         </Button>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
           <Button
             type="button"
             variant="ghost"
             onClick={onSkip}
             disabled={isLoading}
-            className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+            className="w-full sm:w-auto text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
           >
             Pular esta etapa
           </Button>
           <Button
             type="submit"
-            className="gap-2"
+            className="w-full sm:w-auto gap-2"
             disabled={isLoading || (configureWhatsApp && (!evolutionApiUrl || !evolutionApiKey || !instanceName))}
             isLoading={isLoading}
           >

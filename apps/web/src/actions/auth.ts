@@ -42,17 +42,21 @@ function getCookieOptions(rememberMe: boolean) {
   const maxAge = rememberMe ? 30 * 24 * 60 * 60 : 15 * 60; // 30 days or 15 minutes
   const refreshMaxAge = rememberMe ? 30 * 24 * 60 * 60 : 7 * 24 * 60 * 60; // 30 days or 7 days
 
+  // Check if frontend is HTTPS (cookies are set on the frontend domain, not the API domain)
+  const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || process.env.FRONTEND_URL || 'http://localhost:3001';
+  const isHttps = process.env.NODE_ENV === 'production' && frontendUrl.startsWith('https');
+
   return {
     accessToken: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_API_URL?.startsWith('https'),
+      secure: isHttps,
       sameSite: 'lax' as const,
       maxAge,
       path: '/',
     },
     refreshToken: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_API_URL?.startsWith('https'),
+      secure: isHttps,
       sameSite: 'lax' as const,
       maxAge: refreshMaxAge,
       path: '/',

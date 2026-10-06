@@ -2,8 +2,6 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
 import { ProgressIndicator } from './ProgressIndicator';
 import { Step1AdminForm } from './Step1AdminForm';
 import { Step2TenantForm } from './Step2TenantForm';
@@ -51,12 +49,14 @@ interface FormData {
 }
 
 export function OnboardingWizard() {
-  const router = useRouter();
   const [currentStep, setCurrentStep] = React.useState<Step>(1);
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
   const [formData, setFormData] = React.useState<FormData>({});
   const [completed, setCompleted] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _ = { setCompleted, setIsLoading, setError };
 
   const updateFormData = (data: Partial<FormData>) => {
     setFormData(prev => ({ ...prev, ...data }));
@@ -119,64 +119,6 @@ export function OnboardingWizard() {
   const handleSkip = () => {
     // Skip WhatsApp config, go to completion
     setCurrentStep(5);
-  };
-
-  const handleComplete = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
-
-      // Prepare payload for bootstrap endpoint - matches backend schema
-      const payload = {
-        name: formData.adminName,
-        email: formData.adminEmail,
-        password: formData.adminPassword,
-        confirmPassword: formData.adminPassword,
-        tenantName: formData.tenantName,
-        tenantFantasyName: formData.tenantFantasyName,
-        tenantTimezone: formData.tenantTimezone || formData.timezone || 'America/Sao_Paulo',
-        tenantCountry: formData.tenantCountry || 'BR',
-        tenantCurrency: formData.tenantCurrency || 'BRL',
-        tenantLogoUrl: formData.tenantLogoUrl,
-        // Include bootstrap token if configured
-        bootstrapToken: process.env.NEXT_PUBLIC_BOOTSTRAP_TOKEN,
-      };
-
-      const response = await fetch(`${apiUrl}/auth/bootstrap`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        // Handle specific error codes
-        if (data.error?.code === 'BOOTSTRAP_NOT_ALLOWED') {
-          throw new Error('Esta instalação já possui usuários. Faça login.');
-        }
-        if (data.error?.code === 'BOOTSTRAP_TOKEN_INVALID') {
-          throw new Error('Token de bootstrap inválido. Contate o administrador.');
-        }
-        throw new Error(data.error?.message || 'Erro ao criar conta');
-      }
-
-      toast.success('Conta criada com sucesso! Bem-vindo ao ZapTI.');
-      setCompleted(true);
-
-      // Success - redirect to dashboard
-      router.push('/dashboard');
-      router.refresh();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erro ao criar conta';
-      setError(message);
-      toast.error(message);
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const prevStep = () => {
@@ -258,7 +200,7 @@ export function OnboardingWizard() {
           <Step5Success
             adminData={{ name: formData.adminName || '', email: formData.adminEmail || '' }}
             tenantData={{ name: formData.tenantName || '' }}
-            onComplete={handleComplete}
+            formData={formData}
             isLoading={isLoading}
             completed={completed}
           />
@@ -269,7 +211,7 @@ export function OnboardingWizard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center px-4 py-12 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center px-3 py-8 relative overflow-hidden">
       {/* Enhanced Background Animation */}
       <div className="onboarding-bg" aria-hidden="true">
         {/* Gradient mesh background */}
@@ -289,60 +231,43 @@ export function OnboardingWizard() {
         <div className="floating-orb floating-orb-3" />
       </div>
 
-      <div className="w-full max-w-2xl relative z-10">
+      <div className="w-full max-w-md relative z-10">
         {/* Logo & Header */}
-        <div className="text-center mb-8 animate-in">
-          <div className="mx-auto mb-6 w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-600 to-primary-500 flex items-center justify-center shadow-lg shadow-primary-500/25 dark:shadow-primary-500/30 animate-pulse-glow">
-            <Zap className="w-8 h-8 text-white" />
+        <div className="text-center mb-6 animate-in">
+          <div className="mx-auto mb-5 w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-600 to-primary-500 flex items-center justify-center shadow-lg shadow-primary-500/25 dark:shadow-primary-500/30 animate-pulse-glow">
+            <Zap className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-4xl sm:text-5xl font-bold text-slate-900 dark:text-white tracking-tight">
+          <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
             Bem-vindo ao <span className="bg-gradient-to-r from-primary-600 to-purple-600 bg-clip-text text-transparent">ZapTI</span>
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-3 text-lg max-w-md mx-auto leading-relaxed">
+          <p className="text-slate-500 dark:text-slate-400 mt-2 text-base max-w-sm mx-auto leading-relaxed">
             Configure sua conta e empresa em poucos passos — simples, rápido e seguro
           </p>
         </div>
 
-        {/* Features preview */}
-        <div className="flex items-center justify-center gap-6 mb-8 animate-in" style={{ animationDelay: '100ms' }}>
-          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 backdrop-blur-sm">
-            <Shield className="w-4 h-4 text-primary-600 dark:text-primary-400" />
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Seguro</span>
+        {/* Features preview - responsive wrap */}
+        <div className="flex flex-wrap items-center justify-center gap-3 mb-6 animate-in" style={{ animationDelay: '100ms' }}>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 backdrop-blur-sm">
+            <Shield className="w-3.5 h-3.5 text-primary-600 dark:text-primary-400" />
+            <span className="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300">Seguro</span>
           </div>
-          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 backdrop-blur-sm">
-            <Users className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Multi-tenant</span>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 backdrop-blur-sm">
+            <Users className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+            <span className="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300">Multi-tenant</span>
           </div>
-          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 backdrop-blur-sm">
-            <Smartphone className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">WhatsApp</span>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 backdrop-blur-sm">
+            <Smartphone className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+            <span className="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300">WhatsApp</span>
           </div>
         </div>
 
-        {/* Progress Indicator */}
-        <ProgressIndicator
-          currentStep={currentStep}
-          totalSteps={WIZARD_STEPS.length}
-          steps={WIZARD_STEPS}
-        />
+        {/* Stepper */}
+        <ProgressIndicator steps={WIZARD_STEPS} currentStep={currentStep} totalSteps={WIZARD_STEPS.length} />
 
-        {/* Wizard Form */}
-        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-200/50 dark:border-slate-700/50 p-6 sm:p-8 animate-in" style={{ animationDelay: '200ms' }}>
-          {error && (
-            <div className="mb-6 p-4 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm animate-in">
-              {error}
-            </div>
-          )}
+        {/* Step Content */}
+        <div className="mt-6 animate-in">
           {renderStep()}
         </div>
-
-        {/* Footer */}
-        <p className="text-center text-slate-400 dark:text-slate-500 text-sm mt-6 animate-in" style={{ animationDelay: '300ms' }}>
-          Ao continuar, você concorda com nossos{' '}
-          <a href="/terms" className="text-primary-600 dark:text-primary-400 hover:underline font-medium">Termos de Uso</a>{' '}
-          e{' '}
-          <a href="/privacy" className="text-primary-600 dark:text-primary-400 hover:underline font-medium">Política de Privacidade</a>
-        </p>
       </div>
     </div>
   );

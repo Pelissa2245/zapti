@@ -2,10 +2,15 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-import 'dotenv/config';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'your-super-secret-refresh-key-change-in-production';
+// Get secrets at runtime (not build time) to support Docker environment variables
+function getJwtSecret(): string {
+  return process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
+}
+
+function getJwtRefreshSecret(): string {
+  return process.env.JWT_REFRESH_SECRET || 'your-super-secret-refresh-key-change-in-production';
+}
 
 export interface TokenPair {
   accessToken: string;
@@ -34,23 +39,23 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 export function generateTokenPair(sessionId: string, userId: string, tenantId: string, rememberMe: boolean): TokenPair {
   const accessToken = jwt.sign(
     { sessionId, userId, tenantId },
-    JWT_SECRET,
+    getJwtSecret(),
     { expiresIn: rememberMe ? '30d' : '15m' }
   );
   const refreshToken = jwt.sign(
     { sessionId, userId, tenantId, type: 'refresh' },
-    JWT_REFRESH_SECRET,
+    getJwtRefreshSecret(),
     { expiresIn: rememberMe ? '30d' : '7d' }
   );
   return { accessToken, refreshToken };
 }
 
 export function verifyRefreshToken(token: string): JWTPayload {
-  return jwt.verify(token, JWT_REFRESH_SECRET) as JWTPayload;
+  return jwt.verify(token, getJwtRefreshSecret()) as JWTPayload;
 }
 
 export function verifyAccessToken(token: string): JWTPayload {
-  return jwt.verify(token, JWT_SECRET) as JWTPayload;
+  return jwt.verify(token, getJwtSecret()) as JWTPayload;
 }
 
 export function createSession(userId: string, tenantId: string, ip: string, userAgent: string, rememberMe: boolean) {

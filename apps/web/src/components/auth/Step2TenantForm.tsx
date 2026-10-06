@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/Button';
 import { Label } from '@/components/ui/Label';
 import { Input } from '@/components/ui/Input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
-import { Building2, Globe, MapPin, DollarSign, Image, AlertCircle } from 'lucide-react';
+import Image from 'next/image';
+import { Building2, Globe, MapPin, DollarSign, Image as ImageIcon, AlertCircle } from 'lucide-react';
 
 const tenantSchema = z.object({
   name: z.string().min(2, 'Nome da empresa deve ter pelo menos 2 caracteres').max(100),
@@ -61,7 +62,7 @@ const currencies = [
 ];
 
 interface Step2TenantFormProps {
-  onNext: (data: TenantFormData) => void;
+  onNext: (data: { name: string; fantasyName?: string; timezone?: string; country?: string; currency?: string; logoUrl?: string }) => void;
   onBack: () => void;
   initialData?: Partial<TenantFormData>;
   isLoading?: boolean;
@@ -104,19 +105,17 @@ export function Step2TenantForm({ onNext, onBack, initialData, isLoading, error 
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 animate-in" noValidate>
       {error && (
-        <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 animate-in">
-          <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            {error}
-          </p>
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 animate-in">
+          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+          <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
         </div>
       )}
 
       {/* Company Name */}
       <div className="animate-in" style={{ animationDelay: '50ms' }}>
-        <Label htmlFor="name" className="flex items-center gap-2">
+        <Label htmlFor="name" className="flex items-center gap-2 text-sm font-medium">
           <Building2 className="w-4 h-4 text-slate-400" />
           Nome da empresa <span className="text-red-500">*</span>
         </Label>
@@ -140,7 +139,7 @@ export function Step2TenantForm({ onNext, onBack, initialData, isLoading, error 
 
       {/* Fantasy Name */}
       <div className="animate-in" style={{ animationDelay: '100ms' }}>
-        <Label htmlFor="fantasyName" className="flex items-center gap-2">
+        <Label htmlFor="fantasyName" className="flex items-center gap-2 text-sm font-medium">
           <Building2 className="w-4 h-4 text-slate-400" />
           Nome fantasia (opcional)
         </Label>
@@ -164,7 +163,7 @@ export function Step2TenantForm({ onNext, onBack, initialData, isLoading, error 
 
       {/* Timezone */}
       <div className="animate-in" style={{ animationDelay: '200ms' }}>
-        <Label htmlFor="timezone" className="flex items-center gap-2">
+        <Label htmlFor="timezone" className="flex items-center gap-2 text-sm font-medium">
           <MapPin className="w-4 h-4 text-slate-400" />
           Fuso horário <span className="text-red-500">*</span>
         </Label>
@@ -194,7 +193,7 @@ export function Step2TenantForm({ onNext, onBack, initialData, isLoading, error 
 
       {/* Country */}
       <div className="animate-in" style={{ animationDelay: '250ms' }}>
-        <Label htmlFor="country" className="flex items-center gap-2">
+        <Label htmlFor="country" className="flex items-center gap-2 text-sm font-medium">
           <Globe className="w-4 h-4 text-slate-400" />
           País <span className="text-red-500">*</span>
         </Label>
@@ -224,7 +223,7 @@ export function Step2TenantForm({ onNext, onBack, initialData, isLoading, error 
 
       {/* Currency */}
       <div className="animate-in" style={{ animationDelay: '300ms' }}>
-        <Label htmlFor="currency" className="flex items-center gap-2">
+        <Label htmlFor="currency" className="flex items-center gap-2 text-sm font-medium">
           <DollarSign className="w-4 h-4 text-slate-400" />
           Moeda <span className="text-red-500">*</span>
         </Label>
@@ -254,8 +253,8 @@ export function Step2TenantForm({ onNext, onBack, initialData, isLoading, error 
 
       {/* Logo URL */}
       <div className="animate-in" style={{ animationDelay: '350ms' }}>
-        <Label htmlFor="logoUrl" className="flex items-center gap-2">
-          <Image className="w-4 h-4 text-slate-400" />
+        <Label htmlFor="logoUrl" className="flex items-center gap-2 text-sm font-medium">
+          <ImageIcon className="w-4 h-4 text-slate-400" />
           URL do logo (opcional)
         </Label>
         <Input
@@ -268,8 +267,8 @@ export function Step2TenantForm({ onNext, onBack, initialData, isLoading, error 
           className="mt-1.5"
         />
         {logoPreview && (
-          <div className="mt-2 relative w-24 h-24 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 animate-in">
-            <img src={logoPreview} alt="Preview do logo" className="w-full h-full object-cover" />
+          <div className="mt-2 relative w-20 h-20 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 animate-in">
+            <Image src={logoPreview} alt="" fill className="object-cover" sizes="80px" />
           </div>
         )}
         {errors.logoUrl && (
@@ -281,11 +280,11 @@ export function Step2TenantForm({ onNext, onBack, initialData, isLoading, error 
       </div>
 
       {/* Navigation */}
-      <div className="flex justify-between pt-4 border-t border-slate-200 dark:border-slate-700 animate-in" style={{ animationDelay: '400ms' }}>
-        <Button type="button" variant="outline" onClick={onBack} disabled={isLoading}>
+      <div className="flex justify-between pt-3 border-t border-slate-200 dark:border-slate-700 animate-in" style={{ animationDelay: '400ms' }}>
+        <Button type="button" variant="outline" onClick={onBack} disabled={isLoading} className="w-full sm:w-auto">
           Voltar
         </Button>
-        <Button type="submit" disabled={isLoading}>
+        <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
           Próximo
         </Button>
       </div>

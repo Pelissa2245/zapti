@@ -44,7 +44,7 @@ const timezones = [
 ];
 
 interface Step3PreferencesFormProps {
-  onNext: (data: PreferencesFormData) => void;
+  onNext: (data: { language: string; timezone: string; theme: 'light' | 'dark' | 'system'; notifications: { email: boolean; push: boolean; whatsapp: boolean } }) => void;
   onBack: () => void;
   initialData?: Partial<PreferencesFormData>;
   isLoading?: boolean;
@@ -69,25 +69,23 @@ export function Step3PreferencesForm({ onNext, onBack, initialData, isLoading, e
     },
   });
 
-  const registerField = register as <T extends string>(name: T) => React.InputHTMLAttributes<HTMLInputElement>;
-
   const onSubmit = (data: PreferencesFormData) => {
     onNext(data);
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 animate-in" noValidate>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 animate-in" noValidate>
       {/* Error Alert */}
       {error && (
-        <div className="flex items-center gap-3 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 animate-in" role="alert">
-          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 animate-in" role="alert">
+          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
           <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
         </div>
       )}
 
       {/* Language */}
       <div className="animate-in" style={{ animationDelay: '50ms' }}>
-        <Label htmlFor="language" className="flex items-center gap-2">
+        <Label htmlFor="language" className="flex items-center gap-2 text-sm font-medium">
           <Globe className="w-4 h-4 text-slate-400" />
           Idioma <span className="text-red-500">*</span>
         </Label>
@@ -116,8 +114,8 @@ export function Step3PreferencesForm({ onNext, onBack, initialData, isLoading, e
       </div>
 
       {/* Timezone */}
-      <div>
-        <Label htmlFor="timezone" className="flex items-center gap-2">
+      <div className="animate-in" style={{ animationDelay: '100ms' }}>
+        <Label htmlFor="timezone" className="flex items-center gap-2 text-sm font-medium">
           <Monitor className="w-4 h-4 text-slate-400" />
           Fuso horário <span className="text-red-500">*</span>
         </Label>
@@ -147,16 +145,16 @@ export function Step3PreferencesForm({ onNext, onBack, initialData, isLoading, e
 
       {/* Theme */}
       <div className="animate-in" style={{ animationDelay: '150ms' }}>
-        <Label className="flex items-center gap-2">
+        <Label className="flex items-center gap-2 text-sm font-medium">
           <Palette className="w-4 h-4 text-slate-400" />
           Tema
         </Label>
-        <div className="mt-1.5 flex items-center gap-4" role="radiogroup" aria-label="Tema">
+        <div className="mt-1.5 flex flex-wrap items-center gap-3" role="radiogroup" aria-label="Tema">
           {['light', 'dark', 'system'].map((theme) => (
             <label
               key={theme}
               className={cn(
-                'flex items-center gap-2 cursor-pointer p-4 rounded-xl border-2 transition-all duration-200',
+                'flex flex-col items-center gap-2 cursor-pointer p-3 rounded-xl border-2 transition-all duration-200 min-w-[80px]',
                 watch('theme') === theme
                   ? 'border-primary bg-primary/5 dark:bg-primary/10'
                   : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
@@ -181,7 +179,7 @@ export function Step3PreferencesForm({ onNext, onBack, initialData, isLoading, e
                 {theme === 'dark' && <Moon className={cn('w-5 h-5', watch('theme') === theme ? 'text-white' : 'text-slate-400')} />}
                 {theme === 'system' && <Monitor className={cn('w-5 h-5', watch('theme') === theme ? 'text-white' : 'text-slate-500')} />}
               </div>
-              <span className="text-sm font-medium text-slate-900 dark:text-white">
+              <span className="text-xs font-medium text-slate-900 dark:text-white text-center">
                 {theme === 'light' ? 'Claro' : theme === 'dark' ? 'Escuro' : 'Sistema'}
               </span>
             </label>
@@ -190,37 +188,37 @@ export function Step3PreferencesForm({ onNext, onBack, initialData, isLoading, e
       </div>
 
       {/* Notifications */}
-      <div className="pt-2">
-        <Label className="flex items-center gap-2">
+      <div className="pt-2 animate-in" style={{ animationDelay: '200ms' }}>
+        <Label className="flex items-center gap-2 text-sm font-medium">
           <Bell className="w-4 h-4 text-slate-400" />
           Notificações
         </Label>
-        <div className="mt-3 space-y-4">
+        <div className="mt-2 space-y-3">
           {[
             { key: 'email', label: 'Email', description: 'Receber notificações por email' },
             { key: 'push', label: 'Push', description: 'Notificações no navegador' },
             { key: 'whatsapp', label: 'WhatsApp', description: 'Notificações via WhatsApp (requer configuração)' },
           ].map((notification, index) => {
-            const fieldName = `notifications.${notification.key}` as const;
+            const fieldName = `notifications.${notification.key}` as 'notifications.email' | 'notifications.push' | 'notifications.whatsapp';
             return (
             <div
               key={notification.key}
-              className="flex items-center justify-between p-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 animate-in"
+              className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 animate-in"
               style={{ animationDelay: `${250 + index * 50}ms` }}
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0">
                 <input
                   type="checkbox"
                   id={`notifications-${notification.key}`}
-                  {...registerField(fieldName)}
+                  {...register(fieldName)}
                   disabled={isLoading}
-                  className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                  className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-2 focus:ring-primary focus:ring-offset-2 shrink-0"
                 />
-                <div>
+                <div className="min-w-0">
                   <Label htmlFor={`notifications-${notification.key}`} className="text-sm font-medium text-slate-900 dark:text-white cursor-pointer">
                     {notification.label}
                   </Label>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
                     {notification.description}
                   </p>
                 </div>
@@ -232,13 +230,13 @@ export function Step3PreferencesForm({ onNext, onBack, initialData, isLoading, e
       </div>
 
       {/* Navigation Buttons */}
-      <div className="flex justify-between pt-4 border-t border-slate-200 dark:border-slate-700 animate-in" style={{ animationDelay: '400ms' }}>
+      <div className="flex flex-col sm:flex-row justify-between gap-3 pt-3 border-t border-slate-200 dark:border-slate-700 animate-in" style={{ animationDelay: '400ms' }}>
         <Button
           type="button"
           variant="outline"
           onClick={onBack}
           disabled={isLoading}
-          className="gap-2"
+          className="w-full sm:w-auto gap-2"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -247,13 +245,13 @@ export function Step3PreferencesForm({ onNext, onBack, initialData, isLoading, e
         </Button>
         <Button
           type="submit"
-          className="gap-2"
+          className="w-full sm:w-auto gap-2"
           disabled={isLoading}
           isLoading={isLoading}
         >
           Continuar
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9l-7 7 7 7" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </Button>
       </div>

@@ -6,18 +6,30 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { language, timezone, notificationPreferences } = body;
+    const { language, timezone, theme, notificationPreferences, whatsappConfig } = body;
 
-    // Forward to backend API
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+    // Forward to backend API - include Authorization header if present
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+    const authHeader = request.headers.get('authorization');
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (authHeader) {
+      headers['Authorization'] = authHeader;
+    }
+
+    const cookie = request.headers.get('cookie');
+    if (cookie) {
+      headers['Cookie'] = cookie;
+    }
+
     const response = await fetch(`${apiUrl}/auth/complete-onboarding`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: request.headers.get('cookie') || '',
-      },
+      headers,
       credentials: 'include',
-      body: JSON.stringify({ language, timezone, notificationPreferences }),
+      body: JSON.stringify({ language, timezone, theme, notificationPreferences, whatsappConfig }),
     });
 
     const data = await response.json();

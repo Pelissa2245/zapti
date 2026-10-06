@@ -4,10 +4,16 @@ const nextConfig = {
   transpilePackages: ['@zapti/shared'],
   output: 'standalone',
   async rewrites() {
+    // Use relative path for production - proxied via nginx or direct
+    // In development, use the internal Docker hostname
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://api:3000/api/v1';
+    const isExternal = apiUrl.startsWith('http://') || apiUrl.startsWith('https://');
+    const destination = isExternal ? `${apiUrl}/:path*` : 'http://api:3000/api/v1/:path*';
+
     return [
       {
         source: '/api/v1/:path*',
-        destination: 'http://api:3000/api/v1/:path*',
+        destination,
       },
     ];
   },

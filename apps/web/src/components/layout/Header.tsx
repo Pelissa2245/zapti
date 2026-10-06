@@ -66,18 +66,18 @@ export function Header() {
         {/* Right side actions */}
         <div className="flex items-center gap-2">
           {/* Theme toggle */}
-          <Button
-            variant="ghost"
-            size="icon"
+          <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             aria-label={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+            className="p-2 rounded-lg transition-colors hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
+            aria-pressed={theme === 'dark'}
           >
             {theme === 'light' ? (
               <Moon className="h-5 w-5" aria-hidden="true" />
             ) : (
               <Sun className="h-5 w-5 text-amber-500" aria-hidden="true" />
             )}
-          </Button>
+          </button>
 
           {/* Notifications */}
           <Button variant="ghost" size="icon" aria-label="Notificações">

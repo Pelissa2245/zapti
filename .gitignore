@@ -77,3 +77,6 @@ data/
 *~
 *.bak
 *.swp
+
+# Progress tracking (local only)
+PROGRESSO_NOITE.md

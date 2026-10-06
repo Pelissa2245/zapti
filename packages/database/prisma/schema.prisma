@@ -64,7 +64,7 @@ model Tenant {
   name        String
   settings    String   @default("{}") // JSON as string for SQLite
   status      String   @default("ACTIVE") // ACTIVE, SUSPENDED, DELETED
-  plan        String?  @default("free")
+  plan        String?  @default("full")
   ownerId     String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

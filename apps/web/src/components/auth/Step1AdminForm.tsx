@@ -25,7 +25,7 @@ const adminSchema = z.object({
 type AdminFormData = z.infer<typeof adminSchema>;
 
 interface Step1AdminFormProps {
-  onNext: (data: AdminFormData) => void;
+  onNext: (data: { name: string; email: string; password: string }) => void;
   initialData?: Partial<AdminFormData>;
   isLoading?: boolean;
   error?: string | null;
@@ -86,18 +86,18 @@ export function Step1AdminForm({ onNext, initialData, isLoading, error }: Step1A
   });
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6 animate-in" noValidate>
+    <form onSubmit={onSubmit} className="space-y-5 animate-in" noValidate>
       {/* Error Alert */}
       {error && (
-        <div className="flex items-center gap-3 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 animate-in" role="alert">
-          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 animate-in" role="alert">
+          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
           <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
         </div>
       )}
 
       {/* Name Field */}
       <div className="animate-in" style={{ animationDelay: '50ms' }}>
-        <Label htmlFor="name" className="flex items-center gap-2">
+        <Label htmlFor="name" className="flex items-center gap-2 text-sm font-medium">
           <User className="w-4 h-4 text-slate-400" />
           Nome completo
         </Label>
@@ -121,7 +121,7 @@ export function Step1AdminForm({ onNext, initialData, isLoading, error }: Step1A
 
       {/* Email Field */}
       <div className="animate-in" style={{ animationDelay: '100ms' }}>
-        <Label htmlFor="email" className="flex items-center gap-2">
+        <Label htmlFor="email" className="flex items-center gap-2 text-sm font-medium">
           <Mail className="w-4 h-4 text-slate-400" />
           Email
         </Label>
@@ -144,8 +144,8 @@ export function Step1AdminForm({ onNext, initialData, isLoading, error }: Step1A
       </div>
 
       {/* Password Field */}
-      <div>
-        <Label htmlFor="password" className="flex items-center gap-2">
+      <div className="animate-in" style={{ animationDelay: '150ms' }}>
+        <Label htmlFor="password" className="flex items-center gap-2 text-sm font-medium">
           <Lock className="w-4 h-4 text-slate-400" />
           Senha
         </Label>
@@ -195,7 +195,7 @@ export function Step1AdminForm({ onNext, initialData, isLoading, error }: Step1A
 
       {/* Confirm Password Field */}
       <div className="animate-in" style={{ animationDelay: '150ms' }}>
-        <Label htmlFor="confirmPassword" className="flex items-center gap-2">
+        <Label htmlFor="confirmPassword" className="flex items-center gap-2 text-sm font-medium">
           <Lock className="w-4 h-4 text-slate-400" />
           Confirmar senha
         </Label>
@@ -256,7 +256,7 @@ export function Step1AdminForm({ onNext, initialData, isLoading, error }: Step1A
       </div>
 
       {/* Security Note */}
-      <div className="flex items-start gap-3 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 animate-in" style={{ animationDelay: '250ms' }}>
+      <div className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 animate-in" style={{ animationDelay: '250ms' }}>
         <Shield className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
         <div className="text-sm text-slate-600 dark:text-slate-400">
           <p className="font-medium">Segurança:</p>

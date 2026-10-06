@@ -181,23 +181,12 @@ export async function authRoutes(app: FastifyInstance) {
     // Generate tokens
     const { accessToken, refreshToken } = generateTokenPair(session.id, user.id, tenant.id, rememberMe);
 
-    // Set cookies
-    const cookieOptions = {
-      httpOnly: true,
-      secure: config.env === 'production',
-      sameSite: 'lax' as const,
-      maxAge: rememberMe ? 30 * 24 * 60 * 60 : 15 * 60,
-      path: '/',
-    };
-
-    reply.setCookie('accessToken', accessToken, cookieOptions);
-    reply.setCookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: rememberMe ? 30 * 24 * 60 * 60 : 7 * 24 * 60 * 60 });
-
     // Update user last login
     await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
     await logAuthAttempt(request, 'LOGIN_SUCCESS', { userId: user.id, tenantId: tenant.id });
 
+    // Return tokens in body - the Next.js server action will set cookies on the frontend domain
     return {
       user: { id: user.id, name: user.name, email: user.email, avatarUrl: user.avatarUrl, isSuperadmin: user.isSuperadmin, onboardingCompleted: user.onboardingCompleted },
       tenant: { id: tenant.id, name: tenant.name, plan: tenant.plan },
@@ -329,20 +318,9 @@ export async function authRoutes(app: FastifyInstance) {
       },
     });
 
-    // Set cookies
-    const cookieOptions = {
-      httpOnly: true,
-      secure: config.env === 'production',
-      sameSite: 'lax' as const,
-      maxAge: 30 * 24 * 60 * 60,
-      path: '/',
-    };
-
-    reply.setCookie('accessToken', accessToken, cookieOptions);
-    reply.setCookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 30 * 24 * 60 * 60 });
-
     await logAuthAttempt(request, 'BOOTSTRAP_COMPLETED', { userId: result.user.id, tenantId: result.tenant.id });
 
+    // Return tokens in body - the Next.js server action will set cookies on the frontend domain
     return {
       user: { id: result.user.id, name: result.user.name, email: result.user.email, avatarUrl: result.user.avatarUrl, isSuperadmin: result.user.isSuperadmin, onboardingCompleted: result.user.onboardingCompleted },
       tenant: { id: result.tenant.id, name: result.tenant.name, plan: result.tenant.plan },
@@ -380,20 +358,10 @@ app.post('/refresh', { schema: { body: refreshSchemaJson } }, async (request, re
       const newRefreshToken = await hashToken(crypto.randomUUID());
       await prisma.session.update({ where: { id: session.id }, data: { refreshToken: newRefreshToken } });
 
-      const { accessToken, refreshToken: newRefresh } = await generateTokenPair(
+      const { accessToken, refreshToken: newRefresh } = generateTokenPair(
         session.id, session.userId, session.tenantId,
         session.expiresAt > new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
       );
-
-      const cookieOptions = {
-        httpOnly: true,
-        secure: config.env === 'production',
-        sameSite: 'lax' as const,
-        path: '/',
-      };
-
-      reply.setCookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 });
-      reply.setCookie('refreshToken', newRefresh, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 });
 
       // Return new tokens in body so server actions can propagate cookies to the browser
       return {
