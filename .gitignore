@@ -80,3 +80,5 @@ data/
 
 # Progress tracking (local only)
 PROGRESSO_NOITE.md
+*.tar
+*.tar.gz
