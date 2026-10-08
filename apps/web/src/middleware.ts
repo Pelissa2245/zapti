@@ -112,6 +112,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Check if bootstrap is needed
+  const { needsBootstrap, error } = await checkBootstrapNeeded();
 
   if (error) {
     // API is unreachable - redirect to error page
