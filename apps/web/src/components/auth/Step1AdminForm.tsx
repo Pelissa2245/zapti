@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Label } from '@/components/ui/Label';
 import { Input } from '@/components/ui/Input';
 import { Checkbox } from '@/components/ui/Checkbox';
-import { Eye, EyeOff, AlertCircle, User, Mail, Lock, Shield } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, User, Mail, Lock, Shield, CheckCircle2 } from 'lucide-react';
 
 const adminSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres').max(100),
@@ -28,10 +28,9 @@ interface Step1AdminFormProps {
   onNext: (data: { name: string; email: string; password: string }) => void;
   initialData?: Partial<AdminFormData>;
   isLoading?: boolean;
-  error?: string | null;
 }
 
-export function Step1AdminForm({ onNext, initialData, isLoading, error }: Step1AdminFormProps) {
+export function Step1AdminForm({ onNext, initialData, isLoading }: Step1AdminFormProps) {
   const [showPass, setShowPass] = React.useState(false);
   const [showConfirmPass, setShowConfirmPass] = React.useState(false);
 
@@ -62,68 +61,63 @@ export function Step1AdminForm({ onNext, initialData, isLoading, error }: Step1A
     if (/[0-9]/.test(password)) strength++;
     if (/[^A-Za-z0-9]/.test(password)) strength++;
 
-    switch (strength) {
-      case 0:
-      case 1:
-        return { label: 'Muito fraca', color: 'bg-red-500', width: '20%' };
-      case 2:
-        return { label: 'Fraca', color: 'bg-orange-500', width: '40%' };
-      case 3:
-        return { label: 'Média', color: 'bg-yellow-500', width: '60%' };
-      case 4:
-        return { label: 'Forte', color: 'bg-lime-500', width: '80%' };
-      case 5:
-        return { label: 'Muito forte', color: 'bg-green-500', width: '100%' };
-      default:
-        return { label: '', color: 'bg-slate-200', width: '0%' };
-    }
+    if (strength <= 1) return { label: 'Muito fraca', color: 'bg-red-500', width: '20%' };
+    if (strength === 2) return { label: 'Fraca', color: 'bg-orange-500', width: '40%' };
+    if (strength === 3) return { label: 'Média', color: 'bg-yellow-500', width: '60%' };
+    if (strength === 4) return { label: 'Forte', color: 'bg-lime-500', width: '80%' };
+    return { label: 'Muito forte', color: 'bg-green-500', width: '100%' };
   };
 
-  const strength = getPasswordStrength(passwordValue);
+  const strength = React.useMemo(() => passwordValue ? getPasswordStrength(passwordValue) : null, [passwordValue]);
 
-  const onSubmit = handleSubmit((data: AdminFormData) => {
-    onNext(data);
-  });
+  const onSubmit = (data: AdminFormData) => {
+    onNext({ name: data.name, email: data.email, password: data.password });
+  };
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5 animate-in" noValidate>
-      {/* Error Alert */}
-      {error && (
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 animate-in" role="alert">
-          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-          <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 animate-in" style={{ animationDelay: '50ms' }}>
+      {/* Step Header */}
+      <div className="text-center mb-8 animate-slide-up-fade" style={{ animationDelay: '0ms' }}>
+        <div className="mx-auto mb-4 w-14 h-14 rounded-2xl bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center shadow-lg">
+          <User className="w-7 h-7 text-primary-600 dark:text-primary-400" aria-hidden="true" />
         </div>
-      )}
+        <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight font-display">
+          Crie sua conta de administrador
+        </h2>
+        <p className="text-slate-600 dark:text-slate-400 mt-2 text-base leading-relaxed font-body">
+          Estes serão seus dados de acesso ao painel do ZapTI
+        </p>
+      </div>
 
       {/* Name Field */}
-      <div className="animate-in" style={{ animationDelay: '50ms' }}>
-        <Label htmlFor="name" className="flex items-center gap-2 text-sm font-medium">
-          <User className="w-4 h-4 text-slate-400" />
-          Nome completo
+      <div className="animate-slide-up-fade" style={{ animationDelay: '50ms' }}>
+        <Label htmlFor="name" className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+          <User className="w-4 h-4 text-slate-400" aria-hidden="true" />
+          Nome completo <span className="text-red-500" aria-hidden="true">*</span>
         </Label>
         <Input
           id="name"
           type="text"
-          placeholder="Seu nome completo"
+          placeholder="João da Silva"
           autoComplete="name"
           {...register('name')}
           error={errors.name?.message}
           disabled={isLoading}
-          className="mt-1.5"
+          className="mt-1.5 form-input"
         />
         {errors.name && (
           <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1 animate-in">
-            <AlertCircle className="w-3 h-3" />
+            <AlertCircle className="w-3 h-3" aria-hidden="true" />
             {errors.name.message}
           </p>
         )}
       </div>
 
       {/* Email Field */}
-      <div className="animate-in" style={{ animationDelay: '100ms' }}>
-        <Label htmlFor="email" className="flex items-center gap-2 text-sm font-medium">
-          <Mail className="w-4 h-4 text-slate-400" />
-          Email
+      <div className="animate-slide-up-fade" style={{ animationDelay: '100ms' }}>
+        <Label htmlFor="email" className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+          <Mail className="w-4 h-4 text-slate-400" aria-hidden="true" />
+          Email <span className="text-red-500" aria-hidden="true">*</span>
         </Label>
         <Input
           id="email"
@@ -133,21 +127,21 @@ export function Step1AdminForm({ onNext, initialData, isLoading, error }: Step1A
           {...register('email')}
           error={errors.email?.message}
           disabled={isLoading}
-          className="mt-1.5"
+          className="mt-1.5 form-input"
         />
         {errors.email && (
-          <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1">
-            <AlertCircle className="w-3 h-3" />
+          <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1 animate-in">
+            <AlertCircle className="w-3 h-3" aria-hidden="true" />
             {errors.email.message}
           </p>
         )}
       </div>
 
       {/* Password Field */}
-      <div className="animate-in" style={{ animationDelay: '150ms' }}>
-        <Label htmlFor="password" className="flex items-center gap-2 text-sm font-medium">
-          <Lock className="w-4 h-4 text-slate-400" />
-          Senha
+      <div className="animate-slide-up-fade" style={{ animationDelay: '150ms' }}>
+        <Label htmlFor="password" className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+          <Lock className="w-4 h-4 text-slate-400" aria-hidden="true" />
+          Senha <span className="text-red-500" aria-hidden="true">*</span>
         </Label>
         <div className="relative mt-1.5">
           <Input
@@ -158,12 +152,12 @@ export function Step1AdminForm({ onNext, initialData, isLoading, error }: Step1A
             {...register('password')}
             error={errors.password?.message}
             disabled={isLoading}
-            className="pr-12"
+            className="pr-12 form-input"
           />
           <button
             type="button"
             onClick={() => setShowPass(!showPass)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
             aria-label={showPass ? 'Ocultar senha' : 'Mostrar senha'}
           >
             {showPass ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -171,33 +165,33 @@ export function Step1AdminForm({ onNext, initialData, isLoading, error }: Step1A
         </div>
 
         {/* Password Strength Meter */}
-        {passwordValue && (
-          <div className="mt-2 space-y-1">
+        {passwordValue && strength && (
+          <div className="mt-2 space-y-1 animate-slide-up-fade">
             <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
               <div
-                className={`h-full transition-all duration-300 ${strength.color}`}
+                className={`h-full transition-all duration-500 ease-out ${strength.color}`}
                 style={{ width: strength.width }}
               />
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Força da senha: <span className="font-medium">{strength.label}</span>
+              Força da senha: <span className="font-medium text-slate-700 dark:text-slate-300">{strength.label}</span>
             </p>
           </div>
         )}
 
         {errors.password && (
           <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1 animate-in">
-            <AlertCircle className="w-3 h-3" />
+            <AlertCircle className="w-3 h-3" aria-hidden="true" />
             {errors.password.message}
           </p>
         )}
       </div>
 
       {/* Confirm Password Field */}
-      <div className="animate-in" style={{ animationDelay: '150ms' }}>
-        <Label htmlFor="confirmPassword" className="flex items-center gap-2 text-sm font-medium">
-          <Lock className="w-4 h-4 text-slate-400" />
-          Confirmar senha
+      <div className="animate-slide-up-fade" style={{ animationDelay: '150ms' }}>
+        <Label htmlFor="confirmPassword" className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+          <Lock className="w-4 h-4 text-slate-400" aria-hidden="true" />
+          Confirmar senha <span className="text-red-500" aria-hidden="true">*</span>
         </Label>
         <div className="relative mt-1.5">
           <Input
@@ -208,11 +202,12 @@ export function Step1AdminForm({ onNext, initialData, isLoading, error }: Step1A
             {...register('confirmPassword')}
             error={errors.confirmPassword?.message}
             disabled={isLoading}
+            className="pr-12 form-input"
           />
           <button
             type="button"
             onClick={() => setShowConfirmPass(!showConfirmPass)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
             aria-label={showConfirmPass ? 'Ocultar senha' : 'Mostrar senha'}
           >
             {showConfirmPass ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -220,14 +215,14 @@ export function Step1AdminForm({ onNext, initialData, isLoading, error }: Step1A
         </div>
         {errors.confirmPassword && (
           <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1 animate-in">
-            <AlertCircle className="w-3 h-3" />
+            <AlertCircle className="w-3 h-3" aria-hidden="true" />
             {errors.confirmPassword.message}
           </p>
         )}
       </div>
 
       {/* Terms Checkbox */}
-      <div className="pt-2 animate-in" style={{ animationDelay: '200ms' }}>
+      <div className="pt-2 animate-slide-up-fade" style={{ animationDelay: '200ms' }}>
         <div className="flex items-start gap-3">
           <Checkbox
             id="acceptTerms"
@@ -237,11 +232,11 @@ export function Step1AdminForm({ onNext, initialData, isLoading, error }: Step1A
           />
           <Label htmlFor="acceptTerms" className="text-sm text-slate-600 dark:text-slate-300 cursor-pointer leading-relaxed">
             Eu li e concordo com os
-            <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">
+            <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline font-medium transition-colors">
               Termos de Uso
             </a>
             e a
-            <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium ml-1">
+            <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline font-medium ml-1 transition-colors">
               Política de Privacidade
             </a>
             do ZapTI.
@@ -249,18 +244,20 @@ export function Step1AdminForm({ onNext, initialData, isLoading, error }: Step1A
         </div>
         {errors.acceptTerms && (
           <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1 ml-6 animate-in">
-            <AlertCircle className="w-3 h-3" />
+            <AlertCircle className="w-3 h-3" aria-hidden="true" />
             {errors.acceptTerms.message}
           </p>
         )}
       </div>
 
       {/* Security Note */}
-      <div className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 animate-in" style={{ animationDelay: '250ms' }}>
-        <Shield className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+      <div className="flex items-start gap-3 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 animate-slide-up-fade" style={{ animationDelay: '250ms' }}>
+        <div className="w-10 h-10 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center flex-shrink-0">
+          <Shield className="w-5 h-5 text-primary-600 dark:text-primary-400" aria-hidden="true" />
+        </div>
         <div className="text-sm text-slate-600 dark:text-slate-400">
-          <p className="font-medium">Segurança:</p>
-          <p className="mt-1">
+          <p className="font-medium text-slate-900 dark:text-white">Segurança:</p>
+          <p className="mt-1 leading-relaxed">
             Sua senha será armazenada de forma segura usando hash bcrypt. Nós nunca armazenamos
             senhas em texto puro e não temos acesso à sua senha original.
           </p>
@@ -270,12 +267,19 @@ export function Step1AdminForm({ onNext, initialData, isLoading, error }: Step1A
       {/* Submit Button */}
       <Button
         type="submit"
-        className="w-full py-3 text-lg animate-in"
+        className="w-full py-3.5 text-lg font-semibold animate-slide-up-fade"
         disabled={isLoading}
         isLoading={isLoading}
         style={{ animationDelay: '300ms' }}
       >
-        Continuar
+        <span className="flex items-center justify-center gap-2">
+          Continuar
+          <span className="w-5 h-5 flex items-center justify-center">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+          </span>
+        </span>
       </Button>
     </form>
   );

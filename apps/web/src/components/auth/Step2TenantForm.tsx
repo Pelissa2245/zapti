@@ -9,8 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Label } from '@/components/ui/Label';
 import { Input } from '@/components/ui/Input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
-import Image from 'next/image';
-import { Building2, Globe, MapPin, DollarSign, Image as ImageIcon, AlertCircle } from 'lucide-react';
+import { Building2, Globe, MapPin, DollarSign, Image as ImageIcon, AlertCircle, ArrowLeft, CheckCircle2 } from 'lucide-react';
 
 const tenantSchema = z.object({
   name: z.string().min(2, 'Nome da empresa deve ter pelo menos 2 caracteres').max(100),
@@ -46,7 +45,6 @@ const countries = [
   { value: 'CO', label: 'Colômbia' },
   { value: 'CL', label: 'Chile' },
   { value: 'PE', label: 'Peru' },
-  { value: 'UY', label: 'Uruguai' },
 ];
 
 const currencies = [
@@ -58,20 +56,16 @@ const currencies = [
   { value: 'COP', label: 'Peso Colombiano (COP)' },
   { value: 'CLP', label: 'Peso Chileno (CLP)' },
   { value: 'PEN', label: 'Sol Peruano (PEN)' },
-  { value: 'UYU', label: 'Peso Uruguaio (UYU)' },
 ];
 
 interface Step2TenantFormProps {
-  onNext: (data: { name: string; fantasyName?: string; timezone?: string; country?: string; currency?: string; logoUrl?: string }) => void;
+  onNext: (data: { name: string; fantasyName?: string; timezone: string; country: string; currency: string; logoUrl?: string }) => void;
   onBack: () => void;
   initialData?: Partial<TenantFormData>;
   isLoading?: boolean;
-  error?: string | null;
 }
 
-export function Step2TenantForm({ onNext, onBack, initialData, isLoading, error }: Step2TenantFormProps) {
-  const [logoPreview, setLogoPreview] = React.useState<string | null>(null);
-
+export function Step2TenantForm({ onNext, onBack, initialData, isLoading }: Step2TenantFormProps) {
   const {
     register,
     handleSubmit,
@@ -90,89 +84,103 @@ export function Step2TenantForm({ onNext, onBack, initialData, isLoading, error 
     },
   });
 
-  // Logo preview
-  const logoUrlValue = watch('logoUrl');
-  React.useEffect(() => {
-    if (logoUrlValue) {
-      setLogoPreview(logoUrlValue);
-    } else {
-      setLogoPreview(null);
-    }
-  }, [logoUrlValue]);
+  const watchedTimezone = watch('timezone');
+  const watchedCountry = watch('country');
+  const watchedCurrency = watch('currency');
 
-  const onSubmit = (data: TenantFormData) => {
+  const onSubmit = handleSubmit((data: TenantFormData) => {
     onNext(data);
-  };
+  });
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 animate-in" noValidate>
-      {error && (
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 animate-in">
-          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-          <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+    <form onSubmit={onSubmit} className="space-y-6 animate-in" style={{ animationDelay: '50ms' }} noValidate>
+      {/* Step Header */}
+      <div className="text-center mb-8 animate-slide-up-fade" style={{ animationDelay: '0ms' }}>
+        <div className="mx-auto mb-4 w-14 h-14 rounded-2xl bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center shadow-lg">
+          <Building2 className="w-7 h-7 text-primary-600 dark:text-primary-400" aria-hidden="true" />
         </div>
-      )}
+        <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight font-display">
+          Dados da sua empresa
+        </h2>
+        <p className="text-slate-600 dark:text-slate-400 mt-2 text-base leading-relaxed font-body">
+          Configure as informações básicas do seu tenant
+        </p>
+      </div>
 
-      {/* Company Name */}
-      <div className="animate-in" style={{ animationDelay: '50ms' }}>
-        <Label htmlFor="name" className="flex items-center gap-2 text-sm font-medium">
-          <Building2 className="w-4 h-4 text-slate-400" />
-          Nome da empresa <span className="text-red-500">*</span>
+      {/* Back Button */}
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={onBack}
+        disabled={isLoading}
+        className="self-start animate-slide-up-fade"
+        style={{ animationDelay: '50ms' }}
+      >
+        <ArrowLeft className="w-4 h-4 mr-1" aria-hidden="true" />
+        Voltar
+      </Button>
+
+      {/* Name Field */}
+      <div className="animate-slide-up-fade" style={{ animationDelay: '100ms' }}>
+        <Label htmlFor="name" className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+          <Building2 className="w-4 h-4 text-slate-400" aria-hidden="true" />
+          Nome legal <span className="text-red-500" aria-hidden="true">*</span>
         </Label>
         <Input
           id="name"
           type="text"
-          placeholder="Ex: Minha Empresa Ltda"
+          placeholder="Nome legal da empresa"
           autoComplete="organization"
           {...register('name')}
           error={errors.name?.message}
           disabled={isLoading}
-          className="mt-1.5"
+          className="mt-1.5 form-input"
         />
         {errors.name && (
           <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1 animate-in">
-            <AlertCircle className="w-3 h-3" />
+            <AlertCircle className="w-3 h-3" aria-hidden="true" />
             {errors.name.message}
           </p>
         )}
       </div>
 
-      {/* Fantasy Name */}
-      <div className="animate-in" style={{ animationDelay: '100ms' }}>
-        <Label htmlFor="fantasyName" className="flex items-center gap-2 text-sm font-medium">
-          <Building2 className="w-4 h-4 text-slate-400" />
-          Nome fantasia (opcional)
+      {/* Fantasy Name Field */}
+      <div className="animate-slide-up-fade" style={{ animationDelay: '150ms' }}>
+        <Label htmlFor="fantasyName" className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+          <Building2 className="w-4 h-4 text-slate-400" aria-hidden="true" />
+          Nome fantasia <span className="text-slate-400 text-xs font-normal">(opcional)</span>
         </Label>
         <Input
           id="fantasyName"
           type="text"
-          placeholder="Ex: Minha Empresa"
-          autoComplete="organization"
+          placeholder="Nome de fantasia / marca"
+          autoComplete="organization-title"
           {...register('fantasyName')}
           error={errors.fantasyName?.message}
           disabled={isLoading}
-          className="mt-1.5"
+          className="mt-1.5 form-input"
         />
         {errors.fantasyName && (
           <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1 animate-in">
-            <AlertCircle className="w-3 h-3" />
+            <AlertCircle className="w-3 h-3" aria-hidden="true" />
             {errors.fantasyName.message}
           </p>
         )}
       </div>
 
-      {/* Timezone */}
-      <div className="animate-in" style={{ animationDelay: '200ms' }}>
-        <Label htmlFor="timezone" className="flex items-center gap-2 text-sm font-medium">
-          <MapPin className="w-4 h-4 text-slate-400" />
-          Fuso horário <span className="text-red-500">*</span>
+      {/* Timezone Field */}
+      <div className="animate-slide-up-fade" style={{ animationDelay: '200ms' }}>
+        <Label htmlFor="timezone" className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+          <Globe className="w-4 h-4 text-slate-400" aria-hidden="true" />
+          Fuso horário <span className="text-red-500" aria-hidden="true">*</span>
         </Label>
         <Select
-          value={watch('timezone')}
-          onValueChange={(value) => watch('timezone', value)}
+          value={watchedTimezone}
+          onValueChange={(value) => register('timezone').onChange({ target: { value } })}
           disabled={isLoading}
         >
-          <SelectTrigger className="mt-1.5">
+          <SelectTrigger className="mt-1.5 form-input">
             <SelectValue placeholder="Selecione o fuso horário" />
           </SelectTrigger>
           <SelectContent>
@@ -185,107 +193,137 @@ export function Step2TenantForm({ onNext, onBack, initialData, isLoading, error 
         </Select>
         {errors.timezone && (
           <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1 animate-in">
-            <AlertCircle className="w-3 h-3" />
+            <AlertCircle className="w-3 h-3" aria-hidden="true" />
             {errors.timezone.message}
           </p>
         )}
       </div>
 
-      {/* Country */}
-      <div className="animate-in" style={{ animationDelay: '250ms' }}>
-        <Label htmlFor="country" className="flex items-center gap-2 text-sm font-medium">
-          <Globe className="w-4 h-4 text-slate-400" />
-          País <span className="text-red-500">*</span>
-        </Label>
-        <Select
-          value={watch('country')}
-          onValueChange={(value) => watch('country', value)}
-          disabled={isLoading}
-        >
-          <SelectTrigger className="mt-1.5">
-            <SelectValue placeholder="Selecione o país" />
-          </SelectTrigger>
-          <SelectContent>
-            {countries.map((c) => (
-              <SelectItem key={c.value} value={c.value}>
-                {c.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {errors.country && (
-          <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1 animate-in">
-            <AlertCircle className="w-3 h-3" />
-            {errors.country.message}
-          </p>
-        )}
+      {/* Country & Currency Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-slide-up-fade" style={{ animationDelay: '250ms' }}>
+        <div>
+          <Label htmlFor="country" className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+            <MapPin className="w-4 h-4 text-slate-400" aria-hidden="true" />
+            País <span className="text-red-500" aria-hidden="true">*</span>
+          </Label>
+          <Select
+            value={watchedCountry}
+            onValueChange={(value) => register('country').onChange({ target: { value } })}
+            disabled={isLoading}
+          >
+            <SelectTrigger className="mt-1.5 form-input">
+              <SelectValue placeholder="Selecione o país" />
+            </SelectTrigger>
+            <SelectContent>
+              {countries.map((c) => (
+                <SelectItem key={c.value} value={c.value}>
+                  {c.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {errors.country && (
+            <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1 animate-in">
+              <AlertCircle className="w-3 h-3" aria-hidden="true" />
+              {errors.country.message}
+            </p>
+          )}
+        </div>
+
+        <div>
+          <Label htmlFor="currency" className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+            <DollarSign className="w-4 h-4 text-slate-400" aria-hidden="true" />
+            Moeda <span className="text-red-500" aria-hidden="true">*</span>
+          </Label>
+          <Select
+            value={watchedCurrency}
+            onValueChange={(value) => register('currency').onChange({ target: { value } })}
+            disabled={isLoading}
+          >
+            <SelectTrigger className="mt-1.5 form-input">
+              <SelectValue placeholder="Selecione a moeda" />
+            </SelectTrigger>
+            <SelectContent>
+              {currencies.map((c) => (
+                <SelectItem key={c.value} value={c.value}>
+                  {c.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {errors.currency && (
+            <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1 animate-in">
+              <AlertCircle className="w-3 h-3" aria-hidden="true" />
+              {errors.currency.message}
+            </p>
+          )}
+        </div>
       </div>
 
-      {/* Currency */}
-      <div className="animate-in" style={{ animationDelay: '300ms' }}>
-        <Label htmlFor="currency" className="flex items-center gap-2 text-sm font-medium">
-          <DollarSign className="w-4 h-4 text-slate-400" />
-          Moeda <span className="text-red-500">*</span>
-        </Label>
-        <Select
-          value={watch('currency')}
-          onValueChange={(value) => watch('currency', value)}
-          disabled={isLoading}
-        >
-          <SelectTrigger className="mt-1.5">
-            <SelectValue placeholder="Selecione a moeda" />
-          </SelectTrigger>
-          <SelectContent>
-            {currencies.map((c) => (
-              <SelectItem key={c.value} value={c.value}>
-                {c.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {errors.currency && (
-          <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1 animate-in">
-            <AlertCircle className="w-3 h-3" />
-            {errors.currency.message}
-          </p>
-        )}
-      </div>
-
-      {/* Logo URL */}
-      <div className="animate-in" style={{ animationDelay: '350ms' }}>
-        <Label htmlFor="logoUrl" className="flex items-center gap-2 text-sm font-medium">
-          <ImageIcon className="w-4 h-4 text-slate-400" />
-          URL do logo (opcional)
+      {/* Logo URL Field */}
+      <div className="animate-slide-up-fade" style={{ animationDelay: '300ms' }}>
+        <Label htmlFor="logoUrl" className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+          <ImageIcon className="w-4 h-4 text-slate-400" aria-hidden="true" />
+          URL do logotipo <span className="text-slate-400 text-xs font-normal">(opcional)</span>
         </Label>
         <Input
           id="logoUrl"
           type="url"
           placeholder="https://exemplo.com/logo.png"
+          autoComplete="url"
           {...register('logoUrl')}
           error={errors.logoUrl?.message}
           disabled={isLoading}
-          className="mt-1.5"
+          className="mt-1.5 form-input"
         />
-        {logoPreview && (
-          <div className="mt-2 relative w-20 h-20 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 animate-in">
-            <Image src={logoPreview} alt="" fill className="object-cover" sizes="80px" />
-          </div>
-        )}
         {errors.logoUrl && (
           <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1 animate-in">
-            <AlertCircle className="w-3 h-3" />
+            <AlertCircle className="w-3 h-3" aria-hidden="true" />
             {errors.logoUrl.message}
           </p>
         )}
       </div>
 
-      {/* Navigation */}
-      <div className="flex justify-between pt-3 border-t border-slate-200 dark:border-slate-700 animate-in" style={{ animationDelay: '400ms' }}>
-        <Button type="button" variant="outline" onClick={onBack} disabled={isLoading} className="w-full sm:w-auto">
+      {/* Preview Note */}
+      <div className="flex items-start gap-3 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 animate-slide-up-fade" style={{ animationDelay: '350ms' }}>
+        <div className="w-10 h-10 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center flex-shrink-0">
+          <ImageIcon className="w-5 h-5 text-primary-600 dark:text-primary-400" aria-hidden="true" />
+        </div>
+        <div className="text-sm text-slate-600 dark:text-slate-400">
+          <p className="font-medium text-slate-900 dark:text-white">Prévia do logotipo:</p>
+          <p className="mt-1 leading-relaxed">
+            O logotipo aparecerá no painel, em e-mails e na interface do WhatsApp. Use uma URL
+            pública (HTTPS recomendado) para uma imagem quadrada ou retangular.
+          </p>
+        </div>
+      </div>
+
+      {/* Submit Buttons */}
+      <div className="flex gap-3 pt-2 animate-slide-up-fade" style={{ animationDelay: '400ms' }}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onBack}
+          disabled={isLoading}
+          className="flex-1 py-3.5"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" aria-hidden="true" />
           Voltar
         </Button>
-        <Button type="submit" disabled={isLoading} className="w-full sm:w-auto">
-          Próximo
+        <Button
+          type="submit"
+          className="flex-1 py-3.5 text-lg font-semibold"
+          disabled={isLoading}
+          isLoading={isLoading}
+        >
+          <span className="flex items-center justify-center gap-2">
+            Continuar
+            <span className="w-5 h-5 flex items-center justify-center">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </span>
+          </span>
         </Button>
       </div>
     </form>

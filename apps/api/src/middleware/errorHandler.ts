@@ -2,6 +2,7 @@
 import { FastifyInstance, FastifyError, FastifyRequest, FastifyReply } from 'fastify';
 import { ZodError } from 'zod';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { config } from '../config.js';
 
 export function setupErrorHandler(app: FastifyInstance) {
   // Global error handler
@@ -33,7 +34,7 @@ export function setupErrorHandler(app: FastifyInstance) {
           {
             const target = (error.meta?.target as string[])?.join(', ') || 'campo';
             return reply.status(409).send({
-              error: { code: 'DUPLICATE_ENTRY', message: `${target} já está em uso` },
+              error: { code: 'DUPLICATE_ENTRY', message: target + ' já está em uso' },
             });
           }
         case 'P2003': // Foreign key constraint violation
@@ -96,7 +97,7 @@ export function setupErrorHandler(app: FastifyInstance) {
   // Not found handler
   app.setNotFoundHandler(async (request, reply) => {
     return reply.status(404).send({
-      error: { code: 'NOT_FOUND', message: `Rota ${request.method} ${request.url} não encontrada` },
+      error: { code: 'NOT_FOUND', message: 'Rota ' + request.method + ' ' + request.url + ' não encontrada' },
     });
   });
 
@@ -113,5 +114,3 @@ export function setupErrorHandler(app: FastifyInstance) {
     return error;
   });
 }
-
-import { config } from '../config.js';

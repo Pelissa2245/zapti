@@ -1,147 +1,81 @@
-# ZapTI Docker Compose
-# Self-hosted WhatsApp Helpdesk Platform
 version: '3.8'
 
 services:
-  # PostgreSQL Database
   postgres:
     image: postgres:16-alpine
     container_name: zapti-postgres
-    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-zapti}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backups:/backups
     ports:
-      - "5432:5432"
+      - '5432:5432'
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-zapti}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-zapti}']
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - zapti-network
 
-  # Redis Cache & Queue
   redis:
     image: redis:7-alpine
     container_name: zapti-redis
-    restart: unless-stopped
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - '6379:6379'
     volumes:
       - redis_data:/data
-    ports:
-      - "6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - zapti-network
 
-  # API Backend
   api:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
-      target: production
     container_name: zapti-api
-    restart: unless-stopped
     environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - HOST=0.0.0.0
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-zapti}?schema=public
-      - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3001}
-      - SMTP_HOST=${SMTP_HOST}
-      - SMTP_PORT=${SMTP_PORT}
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASS=${SMTP_PASS}
-      - EMAIL_FROM=${EMAIL_FROM}
-      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
-      - EVOLUTION_API_URL=${EVOLUTION_API_URL}
-      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY}
-      - UPLOAD_DIR=/data/zapti/media
-      - MAX_FILE_SIZE=${MAX_FILE_SIZE:-52428800}
-      - BACKUP_DIR=/data/zapti/backups
-      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3001}
-      - LOG_LEVEL=${LOG_LEVEL:-info}
-      - FEATURE_WEBSOCKET=${FEATURE_WEBSOCKET:-true}
-      - FEATURE_SCHEDULER=${FEATURE_SCHEDULER:-true}
-      - FEATURE_EMAIL=${FEATURE_EMAIL:-true}
-      - FEATURE_BACKUPS=${FEATURE_BACKUPS:-true}
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-zapti}?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-key-change-in-production}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-super-secret-refresh-key-change-in-production}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-900000}
+      RATE_LIMIT_MAX_REQUESTS: ${RATE_LIMIT_MAX_REQUESTS:-100}
     ports:
-      - "3000:3000"
-    volumes:
-      - zapti-media:/data/zapti/media
-      - zapti-backups:/data/zapti/backups
-      - zapti-logs:/data/zapti/logs
+      - '3000:3000'
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    networks:
-      - zapti-network
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:3000/health']
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
 
-  # Web Frontend
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-      target: production
-      args:
-        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:3000/api/v1}
     container_name: zapti-web
-    restart: unless-stopped
     environment:
-      - NODE_ENV=production
-      - PORT=3001
-      - HOST=0.0.0.0
-      - HOSTNAME=0.0.0.0
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:3000/api/v1}
-      - API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:3000/api/v1}
-      - NEXT_TELEMETRY_DISABLED=1
+      NODE_ENV: production
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api:3000/api/v1}
     ports:
-      - "3001:3001"
+      - '3001:3000'
     depends_on:
-      api:
-        condition: service_healthy
-    networks:
-      - zapti-network
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3001/auth/login"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      - api
 
 volumes:
   postgres_data:
-    driver: local
   redis_data:
-    driver: local
-  zapti-media:
-    driver: local
-  zapti-backups:
-    driver: local
-  zapti-logs:
-    driver: local
-
-networks:
-  zapti-network:
-    driver: bridge

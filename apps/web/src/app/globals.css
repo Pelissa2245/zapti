@@ -5,50 +5,96 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 224 71.4% 4.1%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 224 71.4% 4.1%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
+    --popover-foreground: 224 71.4% 4.1%;
+    --primary: 221 83% 53%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
+    --primary-hover: 221 83% 48%;
+    --secondary: 220 14.3% 95.9%;
+    --secondary-foreground: 220.9 39.3% 11%;
+    --muted: 220 14.3% 95.9%;
+    --muted-foreground: 220 8.9% 46.1%;
+    --accent: 262 83% 58%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 72.2% 50.6%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 221 83% 53%;
     --radius: 0.5rem;
 
-    /* Font families - single source of truth */
+    /* Enhanced Font families - distinctive choice for ZapTI */
     --font-sans: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, monospace;
+
+    /* Custom design tokens for ZapTI */
+    --color-brand: 221 83% 53%;
+    --color-brand-glow: 221 83% 53% / 0.4;
+    --color-accent: 262 83% 58%;
+    --color-accent-glow: 262 83% 58% / 0.4;
+    --color-success: 142 76% 36%;
+    --color-warning: 38 92% 50%;
+    --color-error: 0 72% 51%;
+
+    /* Enhanced shadows */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+
+    /* Spacing scale */
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --space-10: 2.5rem;
+    --space-12: 3rem;
+    --space-16: 4rem;
+
+    /* Transition durations */
+    --duration-fast: 150ms;
+    --duration-normal: 200ms;
+    --duration-slow: 300ms;
+    --duration-slower: 500ms;
+
+    /* Border radius scale */
+    --radius-sm: 0.25rem;
+    --radius: 0.5rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.5rem;
+    --radius-2xl: 2rem;
+    --radius-full: 9999px;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
+    --background: 224 71% 4%;
+    --foreground: 213 31% 91%;
+    --card: 224 71% 4%;
+    --card-foreground: 213 31% 91%;
+    --popover: 224 71% 4%;
+    --popover-foreground: 213 31% 91%;
+    --primary: 217 91% 60%;
     --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
+    --primary-hover: 217 91% 55%;
+    --secondary: 215 28% 17%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
+    --muted: 215 28% 17%;
+    --muted-foreground: 217.9 10.6% 64.9%;
+    --accent: 262 83% 58%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
+    --border: 215 28% 17%;
+    --input: 215 28% 17%;
     --ring: 224.3 76.3% 48%;
   }
 }
@@ -69,6 +115,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-family: var(--font-sans);
+    line-height: 1.6;
   }
 
   /* Ensure all text elements inherit the font */
@@ -81,7 +128,40 @@
     font-family: var(--font-mono);
   }
 
-  /* Onboarding Background Animations */
+  /* Enhanced typography system */
+  h1, h2, h3, h4, h5, h6 {
+    @apply tracking-tight font-semibold;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01", "ss03";
+    line-height: 1.2;
+  }
+
+  h1 { @apply text-4xl sm:text-5xl lg:text-6xl; }
+  h2 { @apply text-3xl sm:text-4xl; }
+  h3 { @apply text-2xl sm:text-3xl; }
+  h4 { @apply text-xl sm:text-2xl; }
+
+  p {
+    @apply leading-relaxed;
+  }
+
+  /* Better link styling */
+  a {
+    @apply transition-colors duration-200;
+  }
+
+  /* Selection styling */
+  ::selection {
+    @apply bg-primary-500/30 text-primary-900 dark:text-primary-100;
+  }
+
+  /* Focus visible for accessibility */
+  :focus-visible {
+    @apply outline-none ring-2 ring-primary-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-950;
+  }
+}
+
+/* Onboarding Background Animations - Refined & Distinctive */
+@layer base {
   .onboarding-bg {
     position: fixed;
     inset: 0;
@@ -95,30 +175,30 @@
     position: absolute;
     inset: 0;
     background:
-      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59, 130, 246, 0.15), transparent),
-      radial-gradient(ellipse 60% 40% at 80% 100%, rgba(139, 92, 246, 0.1), transparent),
-      radial-gradient(ellipse 50% 30% at 10% 80%, rgba(16, 185, 129, 0.08), transparent);
-    animation: gradient-shift 20s ease-in-out infinite;
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59, 130, 246, 0.12), transparent),
+      radial-gradient(ellipse 60% 40% at 80% 100%, rgba(139, 92, 246, 0.08), transparent),
+      radial-gradient(ellipse 50% 30% at 10% 80%, rgba(16, 185, 129, 0.06), transparent);
+    animation: gradient-shift 25s ease-in-out infinite;
   }
 
   .bg-gradient-mesh {
     position: absolute;
     inset: 0;
     background-image:
-      radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
-      radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
-      radial-gradient(circle at 40% 60%, rgba(16, 185, 129, 0.05) 0%, transparent 50%);
-    animation: mesh-float 15s ease-in-out infinite;
+      radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.06) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.05) 0%, transparent 50%),
+      radial-gradient(circle at 40% 60%, rgba(16, 185, 129, 0.04) 0%, transparent 50%);
+    animation: mesh-float 18s ease-in-out infinite;
   }
 
   .bg-grid-pattern {
     position: absolute;
     inset: 0;
     background-image:
-      linear-gradient(rgba(59, 130, 246, 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(59, 130, 246, 0.03) 1px, transparent 1px);
-    background-size: 60px 60px;
-    animation: grid-drift 30s linear infinite;
+      linear-gradient(rgba(59, 130, 246, 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(59, 130, 246, 0.025) 1px, transparent 1px);
+    background-size: 70px 70px;
+    animation: grid-drift 40s linear infinite;
   }
 
   .particle {
@@ -126,88 +206,106 @@
     width: 4px;
     height: 4px;
     border-radius: 50%;
-    background: rgba(59, 130, 246, 0.4);
-    animation: particle-float 8s ease-in-out infinite;
+    background: rgba(59, 130, 246, 0.35);
+    animation: particle-float 10s ease-in-out infinite;
   }
 
-  .particle-1 { top: 10%; left: 10%; animation-delay: 0s; }
-  .particle-2 { top: 20%; left: 80%; animation-delay: 1.3s; }
-  .particle-3 { top: 60%; left: 15%; animation-delay: 2.6s; }
-  .particle-4 { top: 80%; left: 70%; animation-delay: 3.9s; }
-  .particle-5 { top: 30%; left: 50%; animation-delay: 5.2s; }
-  .particle-6 { top: 70%; left: 30%; animation-delay: 6.5s; }
+  .particle-1 { top: 10%; left: 10%; animation-delay: 0s; animation-duration: 12s; }
+  .particle-2 { top: 20%; left: 85%; animation-delay: 1.5s; animation-duration: 15s; }
+  .particle-3 { top: 60%; left: 15%; animation-delay: 3s; animation-duration: 14s; }
+  .particle-4 { top: 80%; left: 75%; animation-delay: 4.5s; animation-duration: 16s; }
+  .particle-5 { top: 30%; left: 55%; animation-delay: 6s; animation-duration: 13s; }
+  .particle-6 { top: 70%; left: 35%; animation-delay: 7.5s; animation-duration: 17s; }
 
   .floating-orb {
     position: absolute;
     border-radius: 50%;
-    filter: blur(80px);
-    opacity: 0.4;
-    animation: orb-float 12s ease-in-out infinite;
+    filter: blur(100px);
+    opacity: 0.35;
+    animation: orb-float 15s ease-in-out infinite;
   }
 
   .floating-orb-1 {
-    width: 300px;
-    height: 300px;
-    background: rgba(59, 130, 246, 0.3);
-    top: -50px;
-    right: -50px;
+    width: 320px;
+    height: 320px;
+    background: rgba(59, 130, 246, 0.25);
+    top: -60px;
+    right: -60px;
     animation-delay: 0s;
   }
 
   .floating-orb-2 {
-    width: 200px;
-    height: 200px;
-    background: rgba(139, 92, 246, 0.25);
-    bottom: 20%;
-    left: -30px;
-    animation-delay: 4s;
+    width: 220px;
+    height: 220px;
+    background: rgba(139, 92, 246, 0.2);
+    bottom: 15%;
+    left: -40px;
+    animation-delay: 5s;
   }
 
   .floating-orb-3 {
-    width: 150px;
-    height: 150px;
-    background: rgba(16, 185, 129, 0.2);
+    width: 160px;
+    height: 160px;
+    background: rgba(16, 185, 129, 0.15);
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    animation-delay: 8s;
+    animation-delay: 10s;
   }
 
   @keyframes gradient-shift {
-    0%, 100% { transform: translate(0, 0) rotate(0deg); }
-    33% { transform: translate(2%, -1%) rotate(1deg); }
-    66% { transform: translate(-1%, 2%) rotate(-1deg); }
+    0%, 100% { transform: translate(0, 0) rotate(0deg); opacity: 0.8; }
+    25% { transform: translate(1%, -0.5%) rotate(0.5deg); opacity: 1; }
+    50% { transform: translate(-0.5%, 1%) rotate(-0.5deg); opacity: 0.9; }
+    75% { transform: translate(0.5%, 0.5%) rotate(0.3deg); opacity: 1; }
   }
 
   @keyframes mesh-float {
     0%, 100% { transform: translate(0, 0) scale(1); }
-    50% { transform: translate(3%, -2%) scale(1.02); }
+    33% { transform: translate(2%, -1.5%) scale(1.015); }
+    66% { transform: translate(-1.5%, 2%) scale(0.985); }
   }
 
   @keyframes grid-drift {
     0% { background-position: 0 0; }
-    100% { background-position: 60px 60px; }
+    100% { background-position: 70px 70px; }
   }
 
   @keyframes particle-float {
     0%, 100% {
       transform: translateY(0) scale(1);
-      opacity: 0.4;
+      opacity: 0.35;
+    }
+    25% {
+      transform: translateY(-15px) translateX(10px) scale(1.3);
+      opacity: 0.7;
     }
     50% {
-      transform: translateY(-20px) scale(1.2);
-      opacity: 0.8;
+      transform: translateY(-25px) translateX(-8px) scale(0.9);
+      opacity: 0.5;
+    }
+    75% {
+      transform: translateY(-10px) translateX(12px) scale(1.1);
+      opacity: 0.6;
     }
   }
 
   @keyframes orb-float {
     0%, 100% {
       transform: translate(0, 0) scale(1);
-      opacity: 0.4;
+      opacity: 0.35;
+    }
+    25% {
+      transform: translate(15px, -15px) scale(1.08);
+      opacity: 0.45;
     }
     50% {
-      transform: translate(10px, -10px) scale(1.1);
-      opacity: 0.5;
+      transform: translate(-10px, 12px) scale(0.95);
+      opacity: 0.3;
+    }
+    75% {
+      transform: translate(12px, 10px) scale(1.04);
+      opacity: 0.4;
     }
   }
 

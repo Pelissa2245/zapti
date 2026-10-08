@@ -3,6 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ['@zapti/shared'],
   output: 'standalone',
+  optimizeFonts: false,
   async rewrites() {
     // Use relative path for production - proxied via nginx or direct
     // In development, use the internal Docker hostname

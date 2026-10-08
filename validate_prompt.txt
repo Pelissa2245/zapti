@@ -1,0 +1,1 @@
+Validate the onboarding and login flows are working correctly. Test that: 1) Onboarding wizard creates admin user and tenant correctly, 2) Complete-onboarding saves preferences and redirects to dashboard, 3) Login with created credentials works, 4) Session persists after login. Report any issues found.

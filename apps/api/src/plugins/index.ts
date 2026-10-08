@@ -8,9 +8,15 @@ export async function registerPlugins(app: FastifyInstance) {
     contentSecurityPolicy: config.env === 'development' ? false : undefined,
   });
 
-  // CORS
+  // CORS - Allow multiple origins for development
+  const corsOrigins = [
+    config.frontendUrl,
+    'http://localhost:3001',
+    'http://127.0.0.1:3001',
+    'http://192.168.1.193:3001',
+  ];
   await app.register(import('@fastify/cors'), {
-    origin: config.frontendUrl,
+    origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
@@ -40,7 +46,7 @@ export async function registerPlugins(app: FastifyInstance) {
     errorResponseBuilder: (req, context) => ({
       error: {
         code: 'RATE_LIMITED',
-        message: 'Muitas requisições, tente novamente mais tarde',
+        message: 'Muitas requisicoes, tente novamente mais tarde',
         retryAfter: Math.ceil(context.ttl / 1000),
       },
     }),
@@ -57,11 +63,11 @@ export async function registerPlugins(app: FastifyInstance) {
     openapi: {
       info: {
         title: 'ZapTI API',
-        description: 'API para gestão de atendimento via WhatsApp',
+        description: 'API para gestao de atendimento via WhatsApp',
         version: '1.0.0',
         contact: { name: 'ZapTI Team', email: 'support@zapti.app' },
       },
-      servers: [{ url: `http://${config.host}:${config.port}`, description: 'Development server' }],
+      servers: [{ url: config.frontendUrl || 'http://localhost:3000', description: 'Development server' }],
       components: {
         securitySchemes: {
           bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
@@ -70,17 +76,17 @@ export async function registerPlugins(app: FastifyInstance) {
       },
       security: [{ bearerAuth: [], cookieAuth: [] }],
       tags: [
-        { name: 'Auth', description: 'Autenticação e autorização' },
-        { name: 'Users', description: 'Gestão de usuários' },
-        { name: 'Tenants', description: 'Gestão de tenants (superadmin)' },
-        { name: 'WhatsApp', description: 'Instâncias e mensagens WhatsApp' },
-        { name: 'Contacts', description: 'Gestão de contatos' },
+        { name: 'Auth', description: 'Autenticacao e autorizacao' },
+        { name: 'Users', description: 'Gestao de usuarios' },
+        { name: 'Tenants', description: 'Gestao de tenants (superadmin)' },
+        { name: 'WhatsApp', description: 'Instancias e mensagens WhatsApp' },
+        { name: 'Contacts', description: 'Gestao de contatos' },
         { name: 'Conversations', description: 'Conversas e mensagens' },
         { name: 'Tickets', description: 'Sistema de tickets' },
-        { name: 'Flows', description: 'Automações visuais (flows)' },
-        { name: 'Automations', description: 'Automações baseadas em eventos' },
+        { name: 'Flows', description: 'Automacoes visuais (flows)' },
+        { name: 'Automations', description: 'Automacoes baseadas em eventos' },
         { name: 'Audit', description: 'Logs de auditoria' },
-        { name: 'Backups', description: 'Backups e restauração' },
+        { name: 'Backups', description: 'Backups e restauracao' },
       ],
     },
   });

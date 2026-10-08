@@ -2,7 +2,7 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 
-interface CheckboxProps extends React.InputHTMLAttributes<HTMLInputElement> {
+interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'ref'> {
   label?: string;
   onCheckedChange?: (checked: boolean) => void;
 }
@@ -23,7 +23,10 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
             'transition-colors duration-200',
             className
           )}
-          onChange={(e) => onCheckedChange?.(e.target.checked)}
+          onChange={(e) => {
+            onCheckedChange?.(e.target.checked);
+            props.onChange?.(e);
+          }}
           {...props}
         />
         {label && (

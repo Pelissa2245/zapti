@@ -176,3 +176,92 @@ export async function refreshTokenAction() {
     redirect('/auth/login');
   }
 }
+
+// Bootstrap schema for server action
+const bootstrapSchema = z.object({
+  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres').max(100),
+  email: z.string().email('Email inválido'),
+  password: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres').max(128),
+  confirmPassword: z.string(),
+  tenantName: z.string().min(2, 'Nome da empresa deve ter pelo menos 2 caracteres').max(100),
+  tenantFantasyName: z.string().max(100).optional(),
+  tenantTimezone: z.string().min(2).default('America/Sao_Paulo'),
+  tenantCountry: z.string().min(2).default('BR'),
+  tenantCurrency: z.string().min(3).default('BRL'),
+  tenantLogoUrl: z.string().url('URL inválida').optional().or(z.literal('')),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: 'As senhas não conferem',
+  path: ['confirmPassword'],
+});
+
+interface BootstrapResponse {
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    avatarUrl: string | null;
+    isSuperadmin: boolean;
+    onboardingCompleted: boolean;
+  };
+  tenant: {
+    id: string;
+    name: string;
+    plan: string;
+  };
+  session: {
+    id: string;
+    expiresAt: string;
+  };
+  accessToken: string;
+  refreshToken: string;
+  requiresTwoFactor: boolean;
+}
+
+export async function bootstrapAction(prevState: { error?: string } | undefined, formData: FormData) {
+  const rawData = {
+    name: formData.get('name'),
+    email: formData.get('email'),
+    password: formData.get('password'),
+    confirmPassword: formData.get('confirmPassword'),
+    tenantName: formData.get('tenantName'),
+    tenantFantasyName: formData.get('tenantFantasyName'),
+    tenantTimezone: formData.get('tenantTimezone'),
+    tenantCountry: formData.get('tenantCountry'),
+    tenantCurrency: formData.get('tenantCurrency'),
+    tenantLogoUrl: formData.get('tenantLogoUrl'),
+  };
+
+  const validated = bootstrapSchema.safeParse(rawData);
+
+  if (!validated.success) {
+    return { error: validated.error.errors[0].message };
+  }
+
+  try {
+    const response = await fetch(`${API_URL}/auth/bootstrap`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(validated.data),
+    });
+
+    const rawResponse = await response.json();
+
+    const data: BootstrapResponse = rawResponse.data ?? rawResponse;
+    const errorMessage: string | undefined = rawResponse.error?.message;
+
+    if (!response.ok || errorMessage || !data.accessToken) {
+      return { error: errorMessage || 'Erro ao criar administrador inicial' };
+    }
+
+    // Set cookies server-side
+    const cookieStore = await cookies();
+    const options = getCookieOptions(false);
+
+    cookieStore.set('accessToken', data.accessToken, options.accessToken);
+    cookieStore.set('refreshToken', data.refreshToken, options.refreshToken);
+
+    return { success: true };
+  } catch {
+    return { error: 'Erro de conexão. Tente novamente.' };
+  }
+}

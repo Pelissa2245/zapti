@@ -510,12 +510,8 @@ const completeOnboardingSchemaJson = toJsonSchema(completeOnboardingSchema);
       timezone: timezone || 'America/Sao_Paulo',
     };
 
-    if (theme) {
-      updateData.theme = theme;
-    }
-
     if (notificationPreferences) {
-      updateData.notificationPreferences = notificationPreferences;
+      updateData.notificationPreferences = JSON.stringify(notificationPreferences);
     }
 
     await prisma.user.update({
