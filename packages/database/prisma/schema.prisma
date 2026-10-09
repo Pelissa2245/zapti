@@ -1,0 +1,426 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id            String    @id @default(cuid())
+  name          String
+  slug          String    @unique
+  domain        String?   @unique
+  logo          String?
+  primaryColor  String?   @default("#3b82f6")
+  secondaryColor String?  @default("#1e40af")
+  accentColor   String?   @default("#06b6d4")
+  fontFamily    String?   @default("system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif")
+  settings      Json?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  users         User[]
+  contacts      Contact[]
+  conversations Conversation[]
+  messages      Message[]
+  tickets       Ticket[]
+  groups        Group[]
+  campaigns     Campaign[]
+  automations   Automation[]
+  webhooks      Webhook[]
+  integrations  Integration[]
+  auditLogs     AuditLog[]
+
+  @@index([slug])
+  @@index([domain])
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String
+  name          String
+  passwordHash  String
+  avatar        String?
+  role          UserRole  @default(AGENT)
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  twoFactorEnabled Boolean @default(false)
+  twoFactorSecret String?
+  tenantId      String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignedTickets Ticket[] @relation("AssignedTickets")
+  createdTickets  Ticket[] @relation("CreatedTickets")
+  messages      Message[]
+  auditLogs     AuditLog[]
+
+  @@unique([email, tenantId])
+  @@index([tenantId])
+  @@index([email])
+}
+
+enum UserRole {
+  ADMIN
+  SUPER_ADMIN
+  AGENT
+  VIEWER
+}
+
+model Contact {
+  id            String    @id @default(cuid())
+  name          String
+  phone         String
+  email         String?
+  avatar        String?
+  tags          String[]
+  customFields  Json?
+  tenantId      String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+  messages      Message[]
+  groupMembers  GroupMember[]
+
+  @@unique([phone, tenantId])
+  @@index([tenantId])
+  @@index([phone])
+  @@index([email])
+}
+
+model Conversation {
+  id            String    @id @default(cuid())
+  contactId     String
+  tenantId      String
+  status        ConversationStatus @default(OPEN)
+  priority      Priority  @default(NORMAL)
+  assignedToId  String?
+  lastMessageAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  contact       Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignedTo    User?     @relation("AssignedTickets", fields: [assignedToId], references: [id], onDelete: SetNull)
+  messages      Message[]
+  tickets       Ticket[]
+
+  @@index([tenantId])
+  @@index([contactId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([lastMessageAt])
+}
+
+enum ConversationStatus {
+  OPEN
+  PENDING
+  RESOLVED
+  CLOSED
+  SPAM
+}
+
+enum Priority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model Message {
+  id            String    @id @default(cuid())
+  conversationId String
+  contactId     String
+  tenantId      String
+  userId        String?
+  content       String
+  type          MessageType @default(TEXT)
+  mediaUrl      String?
+  mediaType     String?
+  direction     MessageDirection
+  status        MessageStatus @default(SENT)
+  externalId    String?
+  metadata      Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  conversation  Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  contact       Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tenant        Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user          User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([conversationId])
+  @@index([contactId])
+  @@index([externalId])
+  @@index([createdAt])
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  AUDIO
+  VIDEO
+  DOCUMENT
+  LOCATION
+  CONTACT
+  STICKER
+  REACTION
+  TEMPLATE
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+model Ticket {
+  id            String    @id @default(cuid())
+  title         String
+  description   String?
+  status        TicketStatus @default(OPEN)
+  priority      Priority  @default(NORMAL)
+  conversationId String?
+  tenantId      String
+  assignedToId  String?
+  createdById   String
+  dueDate       DateTime?
+  resolvedAt    DateTime?
+  closedAt      DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  conversation  Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignedTo    User?     @relation("AssignedTickets", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdBy     User      @relation("CreatedTickets", fields: [createdById], references: [id], onDelete: Cascade)
+  comments      TicketComment[]
+
+  @@index([tenantId])
+  @@index([conversationId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([priority])
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  PENDING
+  RESOLVED
+  CLOSED
+}
+
+model TicketComment {
+  id        String   @id @default(cuid())
+  ticketId  String
+  userId    String
+  content   String
+  isInternal Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+}
+
+model Group {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  tenantId    String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  members     GroupMember[]
+
+  @@index([tenantId])
+}
+
+model GroupMember {
+  id        String   @id @default(cuid())
+  groupId   String
+  contactId String
+  role      GroupRole @default(MEMBER)
+  joinedAt  DateTime @default(now())
+
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, contactId])
+  @@index([groupId])
+  @@index([contactId])
+}
+
+enum GroupRole {
+  ADMIN
+  MEMBER
+}
+
+model Campaign {
+  id          String       @id @default(cuid())
+  name        String
+  description String?
+  templateId  String?
+  tenantId    String
+  status      CampaignStatus @default(DRAFT)
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  completedAt DateTime?
+  totalRecipients Int      @default(0)
+  sentCount   Int          @default(0)
+  failedCount Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  messages    CampaignMessage[]
+
+  @@index([tenantId])
+  @@index([status])
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  PAUSED
+  CANCELLED
+}
+
+model CampaignMessage {
+  id        String   @id @default(cuid())
+  campaignId String
+  contactId String
+  status    MessageStatus @default(SENT)
+  sentAt    DateTime?
+  error     String?
+  createdAt DateTime @default(now())
+
+  campaign  Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([contactId])
+}
+
+model Automation {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  trigger     AutomationTrigger
+  conditions  Json?
+  actions     Json?
+  isActive    Boolean  @default(true)
+  tenantId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([trigger])
+}
+
+enum AutomationTrigger {
+  NEW_MESSAGE
+  NEW_CONVERSATION
+  KEYWORD_MATCH
+  TIME_BASED
+  CONTACT_TAG_ADDED
+  TICKET_CREATED
+  TICKET_STATUS_CHANGED
+}
+
+model Webhook {
+  id          String   @id @default(cuid())
+  name        String
+  url         String
+  events      String[]
+  secret      String?
+  isActive    Boolean  @default(true)
+  tenantId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model Integration {
+  id          String   @id @default(cuid())
+  type        IntegrationType
+  name        String
+  config      Json
+  isActive    Boolean  @default(true)
+  tenantId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([type])
+}
+
+enum IntegrationType {
+  EVOLUTION_API
+  WHATSAPP_BUSINESS
+  SMTP
+  WEBHOOK
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  entityType String
+  entityId  String
+  userId    String?
+  tenantId  String
+  ipAddress String?
+  userAgent String?
+  oldData   Json?
+  newData   Json?
+  createdAt DateTime @default(now())
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String
+  value     Json
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([key, tenantId])
+  @@index([tenantId])
+}
