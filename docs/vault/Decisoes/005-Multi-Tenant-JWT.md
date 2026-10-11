@@ -1,134 +1,143 @@
-# Decisão 005 — Autenticação JWT com Resolução de Tenant
+# Decisão 005 — Autenticação JWT Multi-tenant com Resolução de Tenant
 
 **Data:** 2026-10-11  
 **Status:** Confirmado
 
 ## Contexto
 
-O ZapTI é **multi-tenant**: cada tenant (empresa) tem seus próprios usuários, contatos, conversas, tickets, etc. O isolamento é feito via `tenantId` em todos os models Prisma.
+O ZapTI é multi-tenant: cada request deve saber **quem é o usuário** E **a qual tenant pertence**. O tenant define o escopo de dados (isolamento total).
 
-## Fluxo de Autenticação
+## Decisão
 
-### 1. Login
-```
-POST /api/auth/login
-Body: { email, password }
-→ Verifica credenciais no banco (User + Tenant)
-→ Gera Access Token (JWT, 7d) + Refresh Token (opaco, salvo no BD)
-→ Retorna: { accessToken, refreshToken, user: { id, email, name, role, tenantId } }
-```
+**JWT contém `tenantId` + `role`; middleware resolve tenant e injeta no request.**
 
-### 2. Access Token (JWT)
-**Payload:**
-```json
-{
-  "sub": "user-id",
-  "tenantId": "tenant-id",
-  "role": "ADMIN|AGENT",
-  "iat": 1234567890,
-  "exp": 1234567890
+### JWT Payload
+```typescript
+interface JWTPayload {
+  sub: string;        // userId
+  email: string;
+  role: UserRole;     // ADMIN | SUPER_ADMIN | AGENT | VIEWER
+  tenantId: string;   // CRÍTICO: define escopo de dados
+  iat?: number;
+  exp?: number;
 }
 ```
 
-**Assinatura:** HS256 com `JWT_SECRET` (mín. 32 chars)
+### Token Strategy
+- **Access Token**: 15 min (curto, para limitar exposição)
+- **Refresh Token**: 7 dias (httpOnly cookie ou body)
+- **Algoritmo**: HS256 (JWT_SECRET min 32 chars)
 
-### 3. Requisições Autenticadas
-```
-Authorization: Bearer <access-token>
-```
-
-### 4. Plugin de Auth (`apps/api/src/plugins/auth.ts`)
+### Middleware Chain (Fastify)
 
 ```typescript
-// Decorator no FastifyRequest
-declare module 'fastify' {
-  interface FastifyRequest {
-    user: { id: string; tenantId: string; role: UserRole }
-    tenant: Tenant
+// 1. JWT verify (plugins/auth.ts)
+await app.register(jwt, { secret: cfg.JWT_SECRET });
+app.addHook('onRequest', async (request) => {
+  try {
+    const payload = await request.jwtVerify();
+    request.user = payload; // { sub, email, role, tenantId }
+  } catch {
+    // token inválido/expirado → 401
   }
-}
+});
 
-// Plugin registra:
-fastify.decorateRequest('user', null)
-fastify.decorateRequest('tenant', null)
-
-// Hook onRequest:
-fastify.addHook('onRequest', async (request) => {
-  const token = request.headers.authorization?.replace('Bearer ', '')
-  if (!token) return
+// 2. Tenant resolution (plugins/tenant.ts)
+app.addHook('onRequest', async (request) => {
+  if (!request.user) return;
   
-  const payload = verifyToken(token) // @zapti/shared/auth
-  const user = await prisma.user.findUnique({ where: { id: payload.sub } })
-  const tenant = await prisma.tenant.findUnique({ where: { id: payload.tenantId } })
+  // SUPER_ADMIN pode acessar qualquer tenant (via header/query)
+  // Demais: tenantId vem do token
+  const tenantId = request.user.role === 'SUPER_ADMIN'
+    ? (request.headers['x-tenant-id'] as string) || request.user.tenantId
+    : request.user.tenantId;
   
-  request.user = { id: user.id, tenantId: user.tenantId, role: user.role }
-  request.tenant = tenant
-})
+  // Validar tenant existe e está ativo
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+  if (!tenant || !tenant.isActive) {
+    throw new Error('Tenant not found or inactive');
+  }
+  
+  request.tenant = tenant;
+  request.tenantId = tenantId;
+});
 ```
 
-### 5. Uso nas Rotas
+### Uso nos Handlers
+
 ```typescript
-// Protegida (exige login)
-fastify.get('/api/conversations', { preHandler: [fastify.authenticate] }, async (request) => {
-  const conversations = await prisma.conversation.findMany({
-    where: { tenantId: request.user.tenantId } // Isolamento automático
-  })
-  return conversations
-})
-
-// Pública (health, login, register)
-fastify.get('/health', async () => ({ status: 'ok' }))
+// Todo handler tem acesso a request.tenantId
+app.get('/contacts', async (request, reply) => {
+  const contacts = await prisma.contact.findMany({
+    where: { tenantId: request.tenantId } // SEMPRE filtrar por tenantId
+  });
+  return contacts;
+});
 ```
 
-## Refresh Token
+### Login Flow
 
-- Token opaco (random string) salvo na tabela `RefreshToken`
-- Expiração: 30 dias
-- Rotação: novo refresh token a cada uso (opcional)
-- Revogação: delete no logout ou expiração
+```
+POST /auth/login
+Body: { email, password, tenantSlug? }
 
-## Password Reset
-
-1. `POST /api/auth/forgot-password` → Gera token, salva em `PasswordReset`, envia email
-2. `POST /api/auth/reset-password` → Valida token, atualiza senha, invalida token
-
-## Multi-Tenant: Resolução de Tenant
-
-**Ordem de prioridade:**
-1. JWT payload (`request.user.tenantId`) — Principal
-2. Header `x-tenant-id` — Para testes/admin (se permitido)
-3. Subdomínio (futuro) — `tenant1.zapti.local`
-
-**Regra:** Todas as queries Prisma **devem** filtrar por `tenantId`:
-```typescript
-// ✅ Correto
-const tickets = await prisma.ticket.findMany({
-  where: { tenantId: request.user.tenantId, status: 'OPEN' }
-})
-
-// ❌ Incorreto — vaza dados entre tenants
-const tickets = await prisma.ticket.findMany({
-  where: { status: 'OPEN' }
-})
+1. Buscar user por email
+2. Verificar passwordHash (bcrypt)
+3. Se SUPER_ADMIN e tenantSlug fornecido → validar tenant
+4. Gerar accessToken + refreshToken com tenantId correto
+5. Retornar tokens + user + tenant
 ```
 
-## Variáveis de Ambiente
+### Super Admin Impersonation
 
-```bash
-JWT_SECRET=sua-chave-super-secreta-com-pelo-menos-32-caracteres
-JWT_EXPIRES_IN=7d
-REFRESH_TOKEN_EXPIRES_IN=30d
+SUPER_ADMIN pode atuar em nome de qualquer tenant:
 ```
+Header: x-tenant-id: <tenantId>
+```
+Middleware valida se tenant existe e user é SUPER_ADMIN.
 
-## Problemas Conhecidos (confirmar)
+## Alternativas Consideradas
 
-- Token expiration handling no Web (interceptor axios para 401 → refresh)
-- Rate limit no login (brute force protection)
-- Audit log no login/logout/falha
+| Opção | Prós | Contras |
+|-------|------|---------|
+| JWT com tenantId (escolhida) | Stateless, escalável, simples | Token maior, tenantId não revogável até expirar |
+| Session + Redis | Revogação imediata | Stateful, precisa Redis, mais complexo |
+| Header `x-tenant-id` em toda request | Flexível | Inseguro (cliente controla), repetitivo |
+| Subdomain por tenant (tenant.app.com) | Isolamento visual | DNS complexo, certificado wildcard |
+
+## Consequências
+
+**Positivas:**
+- Stateless — não precisa session store
+- `tenantId` no token = zero round-trip para resolver tenant
+- SUPER_ADMIN pode trocar tenant via header (admin panel)
+- Prisma middleware pode usar `request.tenantId` para filtro automático (futuro)
+
+**Negativas/Riscos:**
+- Token expira em 15min — se tenant desativado, usuário ainda acessa até expirar
+- Refresh token rotation não implementado (risco se vazado)
+- `tenantId` no payload = não pode mudar tenant sem novo login (exceto SUPER_ADMIN)
+- Precisa validar `tenant.isActive` em toda request (query extra)
+
+**Neutras:**
+- `packages/shared/auth` exporta `generateAccessToken`, `verifyToken`, `extractTokenFromHeader`
+- `apps/api/src/plugins/auth.ts` registra JWT no Fastify
+- `apps/api/src/plugins/tenant.ts` resolve tenant
+
+## Próximos Passos
+
+- [ ] Implementar refresh token rotation (blacklist old, issue new)
+- [ ] Adicionar Prisma middleware para filtro automático `tenantId` (soft delete pattern)
+- [ ] Rate limit por tenant (não só por IP)
+- [ ] Auditar todos handlers usam `request.tenantId` (grep: `prisma.\w+\.findMany\(.*where:`)
+- [ ] Testar SUPER_ADMIN impersonation
+- [ ] Documentar fluxo de login no onboarding wizard
 
 ## Referências
 
-- `apps/api/src/plugins/auth.ts`
-- `apps/api/src/routes/auth.ts`
-- `packages/shared/src/auth/index.ts`
-- [Arquitetura](../Arquitetura.md) — Seção Auth
+- `packages/shared/src/auth/index.ts` — JWT helpers
+- `apps/api/src/plugins/auth.ts` — Fastify JWT plugin
+- `apps/api/src/plugins/tenant.ts` — Tenant resolution middleware
+- `apps/api/src/routes/auth.ts` — Login/refresh endpoints
+- `packages/database/prisma/schema.prisma` — User.model (tenantId, role)
+- Handoff.md

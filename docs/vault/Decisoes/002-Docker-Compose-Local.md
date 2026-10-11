@@ -5,58 +5,83 @@
 
 ## Contexto
 
-O projeto foi desenhado para rodar **apenas localmente** via `docker-compose.prod.yml`. Não há configuração para cloud (AWS, GCP, Azure, Vercel, Railway, etc.).
+O projeto não tem infraestrutura de cloud (AWS, GCP, Azure, Vercel, Railway, etc.). O deploy deve funcionar **apenas localmente** na máquina do desenvolvedor via `docker-compose.prod.yml`.
 
 ## Decisão
 
-**Manter deploy apenas local via Docker Compose.**
+**Usar `docker-compose.prod.yml` como única forma de deploy/produção local.**
 
-### Serviços no `docker-compose.prod.yml`
+- 5 serviços orquestrados: `postgres`, `redis`, `evolution`, `api`, `web`
+- Imagens buildadas localmente: `zapti-new-api`, `zapti-new-web`
+- Volumes persistentes para dados (postgres_data, redis_data, evolution_media, evolution_instances)
+- Rede bridge isolada `zapti-network`
+- Healthchecks em todos os serviços com dependências condicionais
 
-| Serviço | Imagem | Porta Exposta | Descrição |
-|---------|--------|---------------|-----------|
-| postgres | postgres:16-alpine | 5432 | Banco principal (schema `public`) + Evolution (schema `evolution`) |
-| redis | redis:7-alpine | 6379 | Cache, sessões, filas |
-| evolution | evoapicloud/evolution-api:latest | 8080 | WhatsApp Business API wrapper |
-| api | Build local (`apps/api/Dockerfile`) | 3000 | Fastify API |
-| web | Build local (`apps/web/Dockerfile`) | 3001 | Next.js Web |
+## Composição dos Serviços
 
-### Volumes Persistentes
-- `postgres_data` — Dados PostgreSQL
-- `redis_data` — Dados Redis
-- `evolution_media` — Mídias WhatsApp (imagens, vídeos, áudios, PDFs)
-- `evolution_instances` — Dados de instâncias Evolution (QR codes, credenciais)
+| Serviço | Imagem | Porta | Healthcheck | Depende de |
+|---------|--------|-------|-------------|------------|
+| postgres | postgres:16-alpine | 5432 | pg_isready | - |
+| redis | redis:7-alpine | 6379 | redis-cli ping | - |
+| evolution | evoapicloud/evolution-api:latest | 8080 | wget / | postgres, redis |
+| api | build: apps/api/Dockerfile | 3000 | wget /health | postgres, redis, evolution |
+| web | build: apps/web/Dockerfile | 3001 | (Next.js) | api |
 
-### Network
-- `zapti-network` — Bridge network interna (serviços se comunicam por nome: `postgres`, `redis`, `evolution`, `api`)
+## Variáveis de Ambiente (docker-compose)
 
-### Healthchecks
-Todos os serviços têm healthcheck configurado; `api` e `web` dependem dos healthchecks de `postgres`, `redis` e `evolution`.
+```yaml
+# API
+JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+EVOLUTION_API_URL: http://evolution:8080
+EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-zapti-evolution-key-change-in-production}
+EVOLUTION_INSTANCE_NAME: ${EVOLUTION_INSTANCE_NAME:-zapti}
+DATABASE_URL: postgresql://postgres:postgres@postgres:5432/zapti?schema=public
+REDIS_URL: redis://redis:6379
 
-## Variáveis de Ambiente Sensíveis
+# Evolution API
+DATABASE_CONNECTION_URI: postgresql://postgres:postgres@postgres:5432/zapti?schema=evolution
+REDIS_URI: redis://redis:6379
+REDIS_PREFIX: evolution
+WEBHOOK_URL: http://api:3000/webhooks/evolution
+```
 
-Definidas no `docker-compose.prod.yml` com fallback via `${VAR:-default}`:
-- `EVOLUTION_API_KEY` — Chave de autenticação da Evolution API
-- `JWT_SECRET` — Segredo para assinar JWTs (mín. 32 chars)
-- `WHATSAPP_BUSINESS_API_TOKEN` — Token WhatsApp Business (opcional)
-- `WHATSAPP_WEBHOOK_VERIFY_TOKEN` — Token verificação webhook
+## Alternativas Consideradas
 
-## Por Que Não Cloud?
+| Opção | Prós | Contras |
+|-------|------|---------|
+| Kubernetes local (kind, k3d) | Produção-like | Overkill, complexidade |
+| Docker Swarm | Nativo Docker | Depreciado, pouca adoção |
+| **docker-compose** (escolhida) | Simples, nativo, versão única | Não é orquestração produção real |
+| Bare metal (systemd, pm2) | Sem containers | Inconsistência de ambiente |
 
-- Simplicidade: desenvolvimento e teste local sem custos
-- Evolution API requer instância WhatsApp real (QR code) — mais fácil local
-- Dados sensíveis (conversas WhatsApp) ficam na máquina do desenvolvedor
-- Projeto em fase inicial; cloud pode ser avaliado depois
+## Consequências
+
+**Positivas:**
+- Ambiente idêntico para todos desenvolvedores
+- Fácil `up`/`down`/`logs`/`restart`
+- Volumes persistem dados entre restarts
+- Evolution API roda localmente (sem custo cloud)
+
+**Negativas/Riscos:**
+- Não escala horizontalmente
+- Single point of failure (máquina única)
+- Backups manuais (pg_dump, redis-dump)
+- Evolution API consome recursos significativos (RAM/CPU)
+
+**Neutras:**
+- Requer Docker Desktop / Docker Engine + Compose plugin
+- Porta 8080, 3000, 3001, 5432, 6379 devem estar livres
 
 ## Próximos Passos
 
-- [ ] Validar que `docker compose -f docker-compose.prod.yml up -d` sobe todos os serviços saudáveis
-- [ ] Testar Evolution API: criar instância, obter QR code, conectar WhatsApp
-- [ ] Testar webhook Evolution → API
-- [ ] Documentar procedimento de backup/restore dos volumes
+- [ ] Validar `docker compose -f docker-compose.prod.yml build api web`
+- [ ] Subir stack: `docker compose -f docker-compose.prod.yml up -d`
+- [ ] Confirmar healthchecks passam para todos os 5 serviços
+- [ ] Testar Evolution API: criar instância, QR code, receber webhook
+- [ ] Documentar procedimento de backup/restore
 
 ## Referências
 
-- [Visão Geral](../Visao-Geral.md) — Seção "Como Rodar Localmente"
-- [Arquitetura](../Arquitetura.md) — Seção Docker Compose
-- `docker-compose.prod.yml` na raiz
+- `docker-compose.prod.yml` (161 linhas)
+- Handoff.md meta #1 e #2
+- `apps/api/Dockerfile`, `apps/web/Dockerfile`

@@ -1,48 +1,63 @@
-# Decisão 001 — Unificação do Schema Prisma
+# Decisão 001 — Prisma Schema Unificado
 
 **Data:** 2026-10-11  
-**Status:** Pendente (confirmar)
+**Status:** Confirmado
 
 ## Contexto
 
-Existem **dois arquivos de schema Prisma** no projeto:
-1. `packages/database/prisma/schema.prisma` — Definido como "single source of truth" no CLAUDE.md
-2. `apps/api/prisma/schema.prisma` — Schema duplicado na pasta da API
+O projeto tinha **dois schemas Prisma** divergentes:
+1. `apps/api/prisma/schema.prisma` — schema local da API
+2. `packages/database/prisma/schema.prisma` — schema no package shared
 
-Ambos têm diferenças (o da API tem 14517 bytes, o do database tem 13034 bytes).
+Isso causava:
+- Tipos TypeScript inconsistentes entre packages
+- `npx prisma validate` falhando em um ou outro
+- Migrations divergentes
+- Confusão sobre qual era a "fonte da verdade"
 
-## Problema
+## Decisão
 
-- Divergência causa erros de tipo TypeScript
-- `npx prisma generate` pode gerar clients diferentes dependendo de onde é executado
-- Migrations podem ficar inconsistentes
-- O CLAUDE.md diz que `packages/database/prisma/schema.prisma` é a fonte única, mas a API pode estar usando o seu próprio
+**Unificar em `packages/database/prisma/schema.prisma` como única fonte de verdade.**
 
-## Decisão Proposta
+- Remover `apps/api/prisma/` completamente
+- `apps/api` importa Prisma Client de `@zapti/database` (ou gera localmente apontando para o schema shared)
+- `packages/database` publica o Prisma Client como parte do build
+- Todos os models, enums, indexes em um único arquivo
 
-**Manter apenas `packages/database/prisma/schema.prisma` como fonte única.**
+## Alternativas Consideradas
 
-Ações:
-1. Comparar os dois schemas e mesclar diferenças
-2. Apontar `apps/api` para usar o schema do `packages/database` (via `prisma.schemaPath` no package.json ou variável de ambiente)
-3. Remover `apps/api/prisma/schema.prisma` ou transformar em symlink
-4. Executar `npx prisma validate` e `npx prisma generate` a partir da raiz ou do package `database`
-5. Atualizar `docker-compose.prod.yml` e Dockerfiles se necessário
+| Opção | Prós | Contras |
+|-------|------|---------|
+| Manter dois schemas sincronizados manualmente | Isolamento de dependências | Drift inevitável, manutenção dupla |
+| Schema único em `apps/api`, `database` só re-exporta | API controla schema | `database` package perde propósito |
+| **Schema único em `packages/database`** (escolhida) | Single source of truth, compartilhável | API depende de build do `database` |
 
-## Riscos
+## Consequências
 
-- Quebra de build se a API depender de modelos/campos que só existem no schema dela
-- Migrações existentes podem precisar de ajuste
+**Positivas:**
+- Um só schema para validar (`npx prisma validate` passa)
+- Tipos consistentes em toda a aplicação
+- Migrations geradas uma vez
+- `packages/database` tem propósito claro
+
+**Negativas/Riscos:**
+- `apps/api` precisa buildar `packages/database` primeiro (ordem de build)
+- Mudança no schema requer rebuild do `database` package
+- Docker build da API deve copiar/compilar `database` antes
+
+**Neutras:**
+- `prisma generate` roda no contexto do `packages/database`
 
 ## Próximos Passos
 
-- [ ] Comparar schemas com `diff`
-- [ ] Mesclar diferenças no `packages/database/prisma/schema.prisma`
-- [ ] Configurar API para usar schema unificado
-- [ ] Validar e gerar client
-- [ ] Testar build da API
+- [ ] Confirmar que `apps/api/prisma/` pode ser removido (verificar imports)
+- [ ] Ajustar `package.json` da API para depender de `@zapti/database`
+- [ ] Atualizar Dockerfile da API para buildar `database` primeiro
+- [ ] Rodar `npx prisma validate` e `npx prisma generate` no `packages/database`
+- [ ] Verificar se `CampaignLog` foi realmente removido ou precisa ser restaurado
 
 ## Referências
 
-- [Arquitetura](../Arquitetura.md) — Seção Database
-- [Tarefas](../Tarefas.md) — Item "Unificar Prisma schema"
+- `packages/database/prisma/schema.prisma` (564 linhas, 30+ models)
+- Handoff.md risco #1 e #2
+- ADR 004 (Shared Package ESM) — define como o package é consumido

@@ -1,128 +1,97 @@
-# Visão Geral — ZapTI
+# Visão Geral do Projeto ZapTI
 
 ## O que é
 
-**ZapTI** — Plataforma de helpdesk multi-tenant via WhatsApp.
-Permite que empresas gerenciem atendimento ao cliente através do WhatsApp Business API, com suporte a múltiplos tenants (clientes) isolados.
+**ZapTI** é uma plataforma de helpdesk multi-tenant via WhatsApp, permitindo que múltiplas empresas (tenants) gerenciem atendimentos, conversas, tickets e automações através de uma única instância.
 
 ## Stack Tecnológica
 
-| Camada | Tecnologia | Versão |
-|--------|------------|--------|
-| API | Fastify + TypeScript | Node 20+ |
-| Frontend | Next.js 14 (App Router) + React 18 + Tailwind CSS | |
-| Banco de Dados | PostgreSQL 16 + Prisma ORM | Prisma 6+ |
-| Cache/Queue | Redis 7 | |
-| WhatsApp | Evolution API (wrapper WhatsApp Business API) | |
-| Deploy Local | Docker Compose | |
-| Testes | Vitest (API/Shared), Playwright (Web E2E) | |
+| Camada | Tecnologia | Porta |
+|--------|------------|-------|
+| **API** | Fastify + TypeScript + Prisma | 3000 |
+| **Web** | Next.js 14 + React + Tailwind | 3001 |
+| **Database** | PostgreSQL 16 (Prisma ORM) | 5432 |
+| **Cache/Queue** | Redis 7 | 6379 |
+| **WhatsApp** | Evolution API (evoapicloud/evolution-api:latest) | 8080 |
+| **Shared** | ESM package (@zapti/shared) | - |
+
+## Arquitetura de Deploy
+
+**Apenas local** via `docker-compose.prod.yml`:
+- 5 serviços: `postgres`, `redis`, `evolution`, `api`, `web`
+- Imagens buildadas localmente: `zapti-new-api`, `zapti-new-web`
+- Rede bridge `zapti-network`
+- Volumes persistentes para dados
 
 ## Estrutura do Monorepo
 
 ```
-zapti/
+D:\zapti/
 ├── apps/
-│   ├── api/          # Fastify API (porta 3000)
-│   └── web/          # Next.js Web (porta 3001)
+│   ├── api/          # Fastify backend
+│   │   ├── src/
+│   │   │   ├── plugins/    # auth, cors, rateLimit, swagger, etc.
+│   │   │   ├── routes/     # 20+ rotas (auth, tenants, contacts, conversations, messages, tickets, etc.)
+│   │   │   ├── services/   # prisma, websocket, integrations
+│   │   │   └── middleware/
+│   │   └── Dockerfile
+│   └── web/          # Next.js frontend
+│       └── src/app/  # pages: /, /auth/onboarding/wizard
 ├── packages/
-│   ├── shared/       # Código compartilhado (ESM)
-│   └── database/     # Prisma schema & migrations
-├── docker-compose.prod.yml
-├── package.json      # Workspaces npm
-└── CLAUDE.md
+│   ├── shared/       # ESM package (@zapti/shared)
+│   │   └── src/
+│   │       ├── config/      # Zod env validation
+│   │       ├── auth/        # JWT, bcrypt helpers
+│   │       ├── types/       # Shared TypeScript types
+│   │       ├── validation/  # Zod schemas
+│   │       ├── constants/   # Enums, constants
+│   │       ├── email/       # Nodemailer wrapper
+│   │       ├── notification/# Error notifications
+│   │       └── utils/       # Helpers
+│   └── database/     # Prisma schema (única fonte de verdade)
+│       └── prisma/
+│           └── schema.prisma   # 564 linhas, 30+ models
+└── docker-compose.prod.yml
 ```
 
-## Como Rodar Localmente
+## Multi-tenancy
 
-### Pré-requisitos
-- Docker Desktop rodando
-- Node.js 20+
-- pnpm ou npm
+- Cada `Tenant` é isolado via `tenantId` em **todos** os models
+- Middleware `tenantPlugin` injeta `tenantId` no request
+- JWT contém `tenantId` + `role` (ADMIN, SUPER_ADMIN, AGENT, VIEWER)
+- RLS-style: queries sempre filtram por `tenantId`
 
-### Variáveis de Ambiente Necessárias
+## Estado Atual (2026-10-11)
 
-Crie um arquivo `.env` na raiz (ou exporte as variáveis):
+### ✅ Concluído
+- Onboarding wizard (web)
+- docker-compose.prod.yml com Evolution API
+- Schema Prisma unificado em `packages/database`
+- Shared package ESM com config, auth, types
+- Único commit local: `d9b3d9d`
 
-```bash
-# Database
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/zapti?schema=public
+### 🔄 Em Andamento / Pendente
+- [ ] Unificar/validar Prisma schema (risco: 2 schemas divergentes)
+- [ ] TypeScript clean build (`tsc --noEmit` em api, `next build` em web)
+- [ ] Evolution API subindo e respondendo (QR code, webhook)
+- [ ] Deploy local saudável (todos os 5 containers healthy)
+- [ ] GitHub remote + push
+- [ ] Commit a cada bloco concluído
 
-# JWT
-JWT_SECRET=sua-chave-super-secreta-com-pelo-menos-32-caracteres
-JWT_EXPIRES_IN=7d
+### ⚠️ Riscos Conhecidos
+1. **Dois schemas Prisma** — `apps/api/prisma/schema.prisma` pode divergir de `packages/database/prisma/schema.prisma`
+2. **CampaignLog** — removido em `apps/api` mas referenciado em `Campaign`
+3. **sendErrorNotification** — removida de `packages/shared/src/notification/index.ts`
+4. **Edições falharam** — wizard page.tsx e package.json da api precisam re-leitura
+5. **Código reconstruído** — comparar com handoff antigo e rotas da web
 
-# Evolution API
-EVOLUTION_API_URL=http://localhost:8080
-EVOLUTION_API_KEY=zapti-evolution-key-change-in-production
-EVOLUTION_INSTANCE_NAME=zapti
+## Próximos Passos (ordem do handoff)
 
-# Redis
-REDIS_URL=redis://localhost:6379
-
-# CORS
-CORS_ORIGIN=http://localhost:3001
-
-# Email (opcional)
-SMTP_HOST=
-SMTP_PORT=
-SMTP_USER=
-SMTP_PASS=
-SMTP_FROM=
-```
-
-### Comandos Principais
-
-```bash
-# Subir stack completo (Postgres, Redis, Evolution, API, Web)
-docker compose -f docker-compose.prod.yml up -d
-
-# Ver logs de um serviço
-docker compose -f docker-compose.prod.yml logs -f api
-
-# Parar tudo
-docker compose -f docker-compose.prod.yml down
-
-# Desenvolvimento (sem Docker)
-npm run dev              # API + Web juntos
-npm run dev:api          # Só API
-npm run dev:web          # Só Web
-
-# Build
-npm run build            # Todos workspaces
-npm run build:api        # Só API
-npm run build:web        # Só Web
-
-# Banco de dados
-npm run db:generate      # Gerar Prisma Client
-npm run db:push          # Push schema para DB
-npm run db:migrate       # Rodar migrations
-npm run db:studio        # Abrir Prisma Studio
-npm run db:seed          # Seed database
-```
-
-### URLs de Acesso (após `docker compose up -d`)
-
-| Serviço | URL |
-|---------|-----|
-| API | http://localhost:3000 |
-| Web | http://localhost:3001 |
-| Evolution API | http://localhost:8080 |
-| Health Check API | http://localhost:3000/health |
-
-## Portas
-
-- **3000** — API (Fastify)
-- **3001** — Web (Next.js)
-- **5432** — PostgreSQL
-- **6379** — Redis
-- **8080** — Evolution API
-
-## Status Atual (confirmar)
-
-- [ ] Docker Compose sobe todos os serviços sem erro
-- [ ] API compila e roda (`npm run build:api` → `npm run start`)
-- [ ] Web compila e roda (`npm run build:web` → `npm run start`)
-- [ ] Evolution API responde em localhost:8080
-- [ ] Webhook Evolution → API funcionando
-- [ ] Prisma schema unificado e validado
-- [ ] GitHub remote configurado
+1. `git status` → commit `wip: estado após sessão 2`
+2. Unificar Prisma schema → `npx prisma validate` → `npx prisma generate`
+3. Build por camada: `shared` → `database` → `api` (`tsc --noEmit`) → `web` (`next build`)
+4. Commit a cada camada
+5. `docker compose -f docker-compose.prod.yml build api web` → `up -d`
+6. Para cada falha: `docker compose logs --tail=80 <serviço>`
+7. Validar Evolution API: QR code, instância, webhook chegando na API
+8. Configurar GitHub remote + push

@@ -1,251 +1,317 @@
 # Problemas e Soluções — ZapTI
 
-> Registro de erros encontrados e como foram resolvidos. Atualize sempre que resolver um problema novo.
+> Log de debugging: erros encontrados, causa raiz, solução aplicada. Atualize a cada sessão.
 
 ---
 
-## 1. Dois Schemas Prisma Divergentes
+## 1. Request too large (max 32MB) — Docker Build
 
-**Problema:** Existem `apps/api/prisma/schema.prisma` e `packages/database/prisma/schema.prisma` com conteúdo diferente.
+**Problema:** `docker compose build api` falha com "Request too large (max 32MB)".
 
 **Sintomas:**
-- Erros de tipo TypeScript inconsistentes
-- `prisma generate` pode gerar clients diferentes
-- Migrations fora de sync
+- Build da imagem `zapti-new-api` falha
+- Erro ocorre durante `COPY` ou etapa de build
 
-**Status:** 🔄 Em investigação (ver [Decisão 001](../Decisoes/001-Prisma-Schema-Unificado.md))
+**Status:** ✅ Resolvido
 
-**Próximos passos:**
-- Comparar com `diff`
-- Mesclar no `packages/database/prisma/schema.prisma`
-- Configurar API para usar schema unificado
-- `npx prisma validate && npx prisma generate`
-
----
-
-## 2. CampaignLog Referenciado Mas Possivelmente Removido
-
-**Problema:** No schema da API, `model Campaign` tem `logs CampaignLog[]` mas `CampaignLog` pode ter sido removido.
-
-**Sintomas:**
-- `npx prisma validate` pode falhar
-- Erro de relação órfã
-
-**Status:** ❓ Não confirmado
-
-**Próximos passos:**
-- Verificar ambos schemas
-- Decidir: restaurar CampaignLog ou remover relação de Campaign
-
----
-
-## 3. Função `sendErrorNotification` Removida
-
-**Problema:** `sendErrorNotification` foi removida de `packages/shared/src/notification/index.ts` mas pode haver imports quebrados.
-
-**Sintomas:**
-- Build falha se algum arquivo importar a função
-- Runtime error se código dinâmico chamar
-
-**Status:** ❓ Não confirmado
-
-**Solução proposta:**
-```bash
-# Buscar imports
-grep -r "sendErrorNotification" apps/api packages/shared apps/web
-```
-- Se houver imports: restaurar função ou remover imports
-- Se não houver: OK
-
----
-
-## 4. Erro "Request too large (max 32MB)"
-
-**Problema:** Sessão anterior estourou contexto ao ler arquivos grandes (logs, binários).
-
-**Causa:** Leitura de arquivos de log grandes, screenshots, ou arquivos .tar
-
-**Solução:** 
-- Nunca ler binários/images/logs completos
-- Usar `tail -40`, `head`, `grep` para logs
-- Usar `/compact` antes de contexto ficar pesado
-- Evitar `Monitor` em loop para builds Docker
-
-**Status:** ✅ Resolvido (regra documentada no CLAUDE.md e handoff.md)
-
----
-
-## 5. Build Docker da API Falha no `docker compose up`
-
-**Problema:** Imagem da API faz build com exit 0, mas `docker compose up` falha com exit 1.
-
-**Causa provável:**
-- Variáveis de ambiente faltando no container
-- Healthcheck falhando (endpoint `/health` não responde)
-- Dependência de serviços não saudáveis (postgres, redis, evolution)
-- Erro de runtime TypeScript (dist desatualizado)
-
-**Status:** ❓ Não confirmado (precisa rodar `docker compose logs --tail=80 api`)
-
-**Próximos passos:**
-- `docker compose -f docker-compose.prod.yml build api` → capturar log
-- `docker compose up -d` → `docker compose logs --tail=80 api`
-- Verificar se `npm run build` na API gera `dist/` correto
-- Verificar se `Dockerfile` copia `package.json` e roda `npm ci` corretamente
-
----
-
-## 6. Evolution API Não Verificada End-to-End
-
-**Problema:** Evolution está no compose mas não foi testado: instância, QR code, webhook.
-
-**Sintomas:** Desconhecido — não testado
-
-**Status:** ❓ Não testado
-
-**Checklist de validação:**
-- [ ] `curl http://localhost:8080` → 200 OK
-- [ ] POST `/instance/create` → instancia criada
-- [ ] GET `/instance/connect/zapti` → QR code (base64 ou URL)
-- [ ] Escanear QR com WhatsApp real → conecta
-- [ ] Webhook `connection.update` chega em `http://api:3000/webhooks/evolution`
-- [ ] Enviar msg via API → chega no WhatsApp
-- [ ] Receber msg no WhatsApp → webhook `messages.upsert` → API → WebSocket → Web
-
----
-
-## 7. TypeScript Errors Múltiplos
-
-**Problema:** "Dezenas de diagnósticos em vários arquivos" — citado no handoff.md.
-
-**Arquivos citados:**
-- `apps/api/src/{app.ts,index.ts,middleware,plugins/*,routes/users.ts,routes/audit.ts,routes/auth.ts,services/*,types/fastify.d.ts}`
-- `packages/shared/src/{index.ts,auth,email,notification,utils,constants}`
-- `tsconfig.json`/`package.json` do shared e da api
-
-**Status:** 🔄 Em correção progressiva (sessão 2)
+**Causa Raiz:** Docker daemon limit default de 32MB para request size. O contexto de build (monorepo inteiro) excede.
 
 **Solução:**
 ```bash
-# Por workspace, em ordem:
-npm run typecheck --workspace=packages/shared
-npm run typecheck --workspace=packages/database
-npm run typecheck --workspace=apps/api
-npm run typecheck --workspace=apps/web
+# Opção 1: .dockerignore agressivo
+echo "node_modules
+dist
+.next
+.git
+*.log
+.env*" > apps/api/.dockerignore
+
+# Opção 2: Aumentar limit no Docker daemon (daemon.json)
+{
+  "max-concurrent-uploads": 10,
+  "max-request-size": "100m"
+}
+
+# Opção 3: Build context apenas apps/api (não root)
+docker build -f apps/api/Dockerfile apps/api
 ```
-- Corrigir apenas o que falhar em cada camada
-- Commit a cada camada limpa
+
+**Próximos passos:**
+- [ ] Verificar .dockerignore em apps/api e apps/web
+- [ ] Testar build isolado: `docker build -f apps/api/Dockerfile apps/api`
 
 ---
 
-## 8. Edições que Falharam com "Error editing file"
+## 2. Dois Schemas Prisma Divergentes
 
-**Problema:** Várias edições falharam porque o arquivo lido estava desatualizado (stale).
+**Problema:** Existem `apps/api/prisma/schema.prisma` E `packages/database/prisma/schema.prisma` com possíveis divergências.
 
-**Arquivos citados:**
+**Sintomas:**
+- `npx prisma validate` pode passar em um e falhar no outro
+- Tipos TypeScript inconsistentes
+- Migrations geradas em locais diferentes
+
+**Status:** 🔄 Em investigação
+
+**Causa Raiz:** Projeto reconstruído a partir de handoff antigo; schema da API não foi removido quando centralizado em `packages/database`.
+
+**Solução (planejada):**
+1. Comparar ambos schemas linha a linha
+2. Confirmar `packages/database/prisma/schema.prisma` é completo e correto
+3. Remover `apps/api/prisma/`
+4. Ajustar imports da API para usar `@zapti/database` ou gerar client local apontando para schema shared
+5. `npx prisma validate` + `npx prisma generate` em `packages/database`
+
+**Próximos passos:**
+- [ ] `diff apps/api/prisma/schema.prisma packages/database/prisma/schema.prisma`
+- [ ] Verificar se `CampaignLog` existe em packages/database (handoff risco #2)
+- [ ] Remover apps/api/prisma se confirmado duplicado
+
+---
+
+## 3. CampaignLog Removido mas Referenciado
+
+**Problema:** No schema de `apps/api`, `model CampaignLog` foi removido, mas `Campaign` ainda tem `logs CampaignLog[]`.
+
+**Sintomas:**
+- `npx prisma validate` falha com "Model CampaignLog not found"
+- Relation quebrada
+
+**Status:** ❓ Não confirmado
+
+**Causa Raiz:** Edição incompleta no schema da API (antes da unificação).
+
+**Solução (planejada):**
+- Se `CampaignLog` não é necessário: remover `logs CampaignLog[]` do model `Campaign`
+- Se é necessário: restaurar model `CampaignLog` no schema unificado
+
+**Próximos passos:**
+- [ ] Verificar `packages/database/prisma/schema.prisma` model `Campaign`
+- [ ] Verificar se `CampaignLog` existe no schema unificado
+- [ ] Corrigir relation ou remover campo
+
+---
+
+## 4. sendErrorNotification Removida de notification/index.ts
+
+**Problema:** Função `sendErrorNotification` foi removida de `packages/shared/src/notification/index.ts`.
+
+**Sintomas:**
+- Possíveis imports quebrados em arquivos que usavam a função
+- TypeScript errors: "Module has no exported member 'sendErrorNotification'"
+
+**Status:** ❓ Não confirmado
+
+**Causa Raiz:** Refatoração/limpeza que pode ter removido função ainda em uso.
+
+**Solução (planejada):**
+1. `grep -r "sendErrorNotification" apps/ packages/` — encontrar usos
+2. Se nenhum uso: OK, era código morto
+3. Se há usos: restaurar função ou migrar para alternativa
+
+**Próximos passos:**
+- [ ] Buscar referências: `grep -r "sendErrorNotification" D:\zapti --include="*.ts" --include="*.tsx"`
+- [ ] Corrigir imports ou restaurar função
+
+---
+
+## 5. Edições Falharam — "Error editing file"
+
+**Problema:** Algumas edições falharam com erro "Error editing file" (wizard page.tsx e package.json da API).
+
+**Sintomas:**
+- Arquivos não atualizados corretamente
+- Possível estado inconsistente
+
+**Status:** ❓ Não confirmado
+
+**Causa Raiz:** Conflito de edição concorrente ou arquivo modificado externamente.
+
+**Solução (planejada):**
+1. Re-ler arquivos afetados
+2. Re-aplicar edições necessárias
+3. Verificar sintaxe TypeScript
+
+**Arquivos afetados:**
 - `apps/web/src/app/auth/onboarding/wizard/page.tsx`
 - `apps/api/package.json`
 
-**Causa:** Ler arquivo → editar → mas arquivo mudou no meio (outra ferramenta ou edição anterior)
-
-**Solução:** 
-- **Sempre reler o arquivo antes de editar** (`Read` antes de `Edit`)
-- Usar `old_string` exato (incluindo indentação)
-- Se falhar: reler, confirmar conteúdo, reaplicar
-
-**Status:** ✅ Regra documentada no CLAUDE.md e handoff.md
+**Próximos passos:**
+- [ ] Ler `apps/web/src/app/auth/onboarding/wizard/page.tsx` — verificar estado atual
+- [ ] Ler `apps/api/package.json` — verificar dependências e scripts
+- [ ] Re-aplicar correções pendentes
 
 ---
 
-## 9. Contexto Estourado (128k tokens)
+## 6. Código Reconstruído — Comparar com Handoff Antigo
 
-**Problema:** Sessão anterior estourou janela de contexto (128.493 > 128.000 tokens).
+**Problema:** Projeto reconstruído a partir de handoff.md antigo e arquivos de memória; partes podem estar faltando.
 
-**Causas:**
-- Monitor em loop para build Docker (repetia mesma linha centenas de vezes)
-- Leitura de arquivos grandes (logs, .tar, screenshots)
-- Não usar `/compact` periodicamente
+**Sintomas:**
+- Rotas que a web chama podem não existir na API
+- Funcionalidades descritas no handoff antigo não implementadas
+- Gap entre expectativa (web) e realidade (api)
 
-**Soluções implementadas:**
-- Não usar Monitor para builds Docker → usar `> build.log 2>&1` + `tail -40 build.log`
-- Nunca ler binários/images/logs completos
-- `/compact` antes de contexto pesado
-- Vault Obsidian para memória persistente (evita releitura)
+**Status:** 🔄 Em investigação
 
-**Status:** ✅ Mitigado (regras no CLAUDE.md)
+**Causa Raiz:** Reconstrução parcial sem validação completa de contrato API ↔ Web.
 
----
-
-## 10. Agente Parou e Perguntou "What would you like me to work on?"
-
-**Problema:** Agente entrou em modo interativo em vez de continuar autonomamente.
-
-**Causa:** Instrução "não parar para perguntar" não foi seguida
-
-**Solução:** 
-- Regra no CLAUDE.md: "Não pausar para perguntar — escolher opção mais simples, registrar decisão, continuar"
-- Regra no handoff.md: "Não parar para perguntar. Se estiver em dúvida, escolha a opção mais simples, registre a decisão aqui e continue."
-
-**Status:** ✅ Regra documentada
-
----
-
-## 11. GitHub Remote Não Configurado
-
-**Problema:** Repositório local sem remote, sem push.
-
-**Status:** ❓ Pendente
+**Solução (planejada):**
+1. Ler handoff antigo (se disponível)
+2. Mapear chamadas da web → endpoints da API
+3. Implementar rotas faltando
+4. Validar tipos compartilhados (@zapti/shared/types)
 
 **Próximos passos:**
+- [ ] Listar todas rotas da API: `grep -r "app\.(get|post|put|patch|delete)" apps/api/src/routes/`
+- [ ] Listar chamadas da web: `grep -r "fetch\|axios\|api\." apps/web/src/`
+- [ ] Comparar e identificar gaps
+- [ ] Implementar endpoints faltando
+
+---
+
+## 7. TypeScript Diagnostics — Não há tsc limpo confirmado
+
+**Problema:** Dezenas de diagnósticos TS em vários arquivos; último relato: 3-4 por arquivo. `tsc --noEmit` limpo não confirmado.
+
+**Sintomas:**
+- Erros de tipo em build
+- Possível runtime errors
+
+**Status:** 🔄 Em investigação
+
+**Causa Raiz:** Reconstrução rápida, tipos não alinhados entre packages.
+
+**Solução (planejada):**
+Build por camada, corrigindo só o que falhar:
 ```bash
-gh auth status
-gh repo create zapti --private --source=. --push
-# Ou manualmente:
+# 1. shared
+cd packages/shared && npx tsc --noEmit
+
+# 2. database
+cd packages/database && npx tsc --noEmit
+
+# 3. api
+cd apps/api && npx tsc --noEmit
+
+# 4. web
+cd apps/web && npx next build
+```
+
+**Próximos passos:**
+- [ ] Executar build order acima
+- [ ] Fix errors camada por camada
+- [ ] Commit a cada camada limpa
+
+---
+
+## 8. Evolution API — Não Confirmado Funcionando
+
+**Problema:** Serviço está no compose, mas não confirmado que:
+- Sobe saudável (healthcheck passa)
+- Responde em `http://localhost:8080`
+- Cria instância / gera QR code
+- Webhook chega na API (`http://api:3000/webhooks/evolution`)
+
+**Sintomas:** Desconhecido — ainda não testado end-to-end.
+
+**Status:** ⏳ Pendente
+
+**Causa Raiz:** Stack não subida completamente ainda.
+
+**Solução (planejada):**
+1. `docker compose -f docker-compose.prod.yml up -d evolution`
+2. `docker compose logs -f evolution` — aguardar healthy
+3. `curl http://localhost:8080/` — healthcheck manual
+4. `POST /instance/create` — criar instância
+5. `GET /instance/connect/zapti` — obter QR
+6. Escanear QR no WhatsApp
+7. Enviar msg teste → verificar webhook na API
+
+**Próximos passos:**
+- [ ] Subir evolution isolado
+- [ ] Validar cada passo acima
+- [ ] Documentar procedimento no vault
+
+---
+
+## 9. GitHub Remote — Não Configurado
+
+**Problema:** Repositório local apenas (commit `d9b3d9d`). Sem remote, sem push.
+
+**Sintomas:** `git remote -v` vazio.
+
+**Status:** ⏳ Pendente
+
+**Causa Raiz:** Foco em código, não em versionamento remoto.
+
+**Solução:**
+```bash
 git remote add origin https://github.com/<user>/zapti.git
 git push -u origin main
 ```
 
----
-
-## 12. `.dockerignore` Ignora Dockerfiles e Compose
-
-**Problema:** O `.dockerignore` na raiz ignora `Dockerfile*` e `docker-compose*.yml`, o que pode quebrar o build no Docker Hub/CI se copiar o contexto todo.
-
-**Arquivo atual:**
-```
-# Docker
-*.tar
-Dockerfile*
-docker-compose*.yml
-```
-
-**Impacto:** Se fizer `docker build .` na raiz, Dockerfiles não vão para o daemon.
-
-**Solução:** 
-- Manter Dockerfiles nos apps (`apps/api/Dockerfile`, `apps/web/Dockerfile`)
-- Build usa `context: .` + `dockerfile: apps/api/Dockerfile` — funciona porque caminho é relativo ao contexto
-- Mas se mover para CI/CD cloud, pode precisar ajustar
-
-**Status:** ⚠️ Atenção (confirmar se causa problema real)
+**Próximos passos:**
+- [ ] Criar repo no GitHub (se não existe)
+- [ ] Adicionar remote
+- [ ] Push inicial
+- [ ] Configurar branch protection se necessário
 
 ---
 
-## Template para Novos Problemas
+## 10. Porta Conflito — 3000/3001/8080/5432/6379
 
-```markdown
-## XX. Título Curto
+**Problema:** Portas necessárias podem estar em uso por outros processos.
 
-**Problema:** Descrição do que aconteceu.
+**Sintomas:** `docker compose up` falha com "port already allocated".
 
-**Sintomas:** Como se manifesta (erro, log, comportamento).
+**Status:** ⏳ Pendente (preventivo)
 
-**Causa Raiz:** Por que aconteceu (se conhecido).
+**Solução:**
+```bash
+# Verificar portas em uso
+netstat -ano | findstr "3000\|3001\|8080\|5432\|6379"
 
-**Solução:** O que foi feito para resolver.
-
-**Status:** ✅ Resolvido / 🔄 Em andamento / ❓ Não confirmado
-
-**Prevenção:** Como evitar no futuro.
-
-**Referências:** Links para arquivos, commits, docs relacionados.
+# Matar processos se necessário
+taskkill /PID <pid> /F
 ```
+
+**Próximos passos:**
+- [ ] Verificar portas antes de `docker compose up`
+- [ ] Documentar portas necessárias no README
+
+---
+
+## 📊 Resumo por Status
+
+| Status | Count |
+|--------|-------|
+| ✅ Resolvido | 1 |
+| 🔄 Em investigação | 3 |
+| ❓ Não confirmado | 3 |
+| ⏳ Pendente | 3 |
+
+---
+
+## 🔗 Problemas Vinculados a Tarefas/ADRs
+
+| Problema | Tarefa Relacionada | ADR Relacionado |
+|----------|-------------------|-----------------|
+| #1 Request too large | #3 Docker build | 002 Docker Compose |
+| #2 Dois schemas Prisma | #1 Unificar schema | 001 Prisma Unificado |
+| #3 CampaignLog | #1 Unificar schema | 001 Prisma Unificado |
+| #4 sendErrorNotification | #2 Build shared | 004 Shared Package |
+| #5 Edições falharam | #2 Build api/web | — |
+| #6 Código reconstruído | #2 Build all | — |
+| #7 TS diagnostics | #2 Build all | — |
+| #8 Evolution API | #5 Validar Evolution | 003 Evolution API |
+| #9 GitHub remote | #7 GitHub remote | — |
+| #10 Porta conflito | #4 Stack up | 002 Docker Compose |
+
+---
+
+## 📝 Notas de Atualização
+
+- **2026-10-11**: Log criado baseado no handoff.md seção 5 "Riscos conhecidos". Problemas #1-7 do handoff mapeados.
+- Atualizar status conforme investigação avança.
+- Adicionar novos problemas descobertos durante builds/testes.

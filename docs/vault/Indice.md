@@ -3,6 +3,7 @@
 ## Visão Geral
 - [[Visao-Geral]] — O que é o projeto, stack, como rodar localmente
 - [[Arquitetura]] — Componentes principais e como se conectam
+- [[CLAUDE]] — Guia para Claude Code trabalhar neste vault
 
 ## Decisões Técnicas
 - [[Decisoes/001-Prisma-Schema-Unificado]] — Unificação dos dois schemas Prisma (confirmar)
@@ -14,3 +15,6 @@
 ## Acompanhamento
 - [[Tarefas]] — O que está em andamento, pendente e concluído
 - [[Problemas-e-Solucoes]] — Erros encontrados e como foram resolvidos
+
+## Meta
+- [[CLAUDE]] — Instruções para IA (este arquivo referencia a si mesmo)

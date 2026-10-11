@@ -1,135 +1,164 @@
 # Decisão 003 — Integração com Evolution API
 
 **Data:** 2026-10-11  
-**Status:** Em validação (confirmar)
+**Status:** Confirmado
 
 ## Contexto
 
-A Evolution API (`evoapicloud/evolution-api:latest`) é um wrapper open-source para WhatsApp Business API. Ela gerencia instâncias WhatsApp, QR codes, webhooks, envio/recebimento de mensagens, mídias, contatos, grupos, etc.
+O ZapTI precisa enviar/receber mensagens WhatsApp. Opções:
+- WhatsApp Business API oficial (Meta) — custo, aprovação, limites
+- Evolution API (open source, self-hosted) — gratuito, controle total, comunidade ativa
 
-## Configuração no Docker Compose
+## Decisão
+
+**Integrar com Evolution API (evoapicloud/evolution-api:latest) self-hosted no docker-compose.**
+
+- Evolution API roda como serviço no mesmo docker-compose
+- Comunicação via HTTP interno: `http://evolution:8080`
+- Webhook da Evolution aponta para `http://api:3000/webhooks/evolution`
+- Autenticação compartilhada via `EVOLUTION_API_KEY`
+- Instância única por tenant (ou instância compartilhada com multi-tenant no ZapTI)
+
+## Arquitetura da Integração
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Docker Network                          │
+│  ┌──────────┐    ┌──────────┐    ┌──────────────────────┐  │
+│  │ Evolution│───►│   API    │───►│     PostgreSQL         │  │
+│  │  :8080   │    │  :3000   │    │  schema=public         │  │
+│  └──────────┘    └──────────┘    └──────────────────────┘  │
+│       │                │                   │                 │
+│       │ Webhook        │ Prisma            │ schema=evolution│
+│       ▼                ▼                   ▼                 │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │                    Redis (shared)                     │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Eventos Processados
+
+| Evento Evolution | Handler | Ação no ZapTI |
+|------------------|---------|---------------|
+| `MESSAGES_UPSERT` | `handleInboundMessages()` | Criar Contact, Conversation, Message (INBOUND) |
+| `CONNECTION_UPDATE` | `handleConnectionUpdate()` | Atualizar status integração (CONNECTED/DISCONNECTED) |
+| `QRCODE_UPDATED` | `handleQRCode()` | Salvar QR code para exibição no frontend |
+
+## Endpoints da API (Evolution → ZapTI)
+
+```
+POST /webhooks/evolution
+Headers:
+  apikey: <EVOLUTION_API_KEY>
+  content-type: application/json
+
+Body (MESSAGES_UPSERT):
+{
+  "event": "MESSAGES_UPSERT",
+  "instance": "zapti",
+  "data": {
+    "messages": [
+      {
+        "key": { "remoteJid": "5511999999999@s.whatsapp.net", "id": "msg_id" },
+        "message": { "conversation": "Olá" },
+        "messageTimestamp": 1699999999,
+        "pushName": "João"
+      }
+    ]
+  }
+}
+```
+
+## Endpoints da API (ZapTI → Evolution)
+
+```
+# Enviar mensagem de texto
+POST http://evolution:8080/message/sendText/{instance}
+Headers: apikey: <EVOLUTION_API_KEY>
+Body: { number: "5511999999999", text: "Resposta do agente" }
+
+# Obter QR Code
+GET http://evolution:8080/instance/connect/{instance}
+Headers: apikey: <EVOLUTION_API_KEY>
+
+# Status conexão
+GET http://evolution:8080/instance/connectionState/{instance}
+```
+
+## Configuração Evolution (docker-compose.yml)
 
 ```yaml
 evolution:
-  image: evoapicloud/evolution-api:latest
   environment:
-    # Database próprio (schema evolution no mesmo Postgres)
+    SERVER_TYPE: http
+    SERVER_PORT: 8080
     DATABASE_PROVIDER: postgresql
-    DATABASE_CONNECTION_URI: postgresql://postgres:postgres@postgres:5432/zapti?schema=evolution
-    # Redis próprio (prefixo evolution)
+    DATABASE_CONNECTION_URI: "postgresql://postgres:postgres@postgres:5432/zapti?schema=evolution"
     REDIS_ENABLED: "true"
-    REDIS_URI: redis://redis:6379
+    REDIS_URI: "redis://redis:6379"
     REDIS_PREFIX: "evolution"
-    # Auth
-    AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
-    # Webhook para API do ZapTI
-    WHATSAPP_WEBHOOK_ENABLED: "true"
-    WHATSAPP_WEBHOOK_URL: "http://api:3000/webhooks/evolution"
-    WHATSAPP_WEBHOOK_EVENTS: "messages.upsert,messages.update,contacts.upsert,chats.upsert,instance.update,connection.update,qrcode.updated"
+    WEBHOOK_URL: "http://api:3000/webhooks/evolution"
+    WEBHOOK_EVENTS: "MESSAGES_UPSERT,CONNECTION_UPDATE,QRCODE_UPDATED"
+    AUTHENTICATION_API_KEY: "${EVOLUTION_API_KEY}"
+    INSTANCE_NAME: "${EVOLUTION_INSTANCE_NAME:-zapti}"
 ```
 
-## Integração no ZapTI
+## Multi-tenancy na Evolution
 
-### API (`apps/api`)
+**Opção A: Uma instância Evolution por tenant**
+- Prós: Isolamento total, QR codes separados
+- Contras: Mais recursos, complexidade de gerenciar N instâncias
 
-**Serviço WhatsApp** — `src/services/whatsapp.ts`
-- `sendMessage()` — Envia mensagem via Evolution API
-- `createInstance()` — Cria instância WhatsApp
-- `getQRCode()` — Obtém QR code para pareamento
-- `setWebhook()` — Configura webhook na instância
-- Handlers: `processEvolutionWebhook()`, `processWhatsAppWebhook()`
+**Opção B: Instância única compartilhada (atual)**
+- Prós: Simples, menos recursos
+- Contras: Todos tenants no mesmo número WhatsApp
+- **Escolhida para MVP** — tenant isolado no ZapTI via `tenantId`
 
-**Rota Webhook** — `src/routes/webhooks.ts`
-- `POST /webhooks/evolution` — Recebe eventos da Evolution
-- Valida assinatura (header `apikey`)
-- Processa eventos: mensagem nova, atualização status, contato, chat, instância, conexão, QR code
+## Alternativas Consideradas
 
-### Eventos Suportados
+| Opção | Prós | Contras |
+|-------|------|---------|
+| WhatsApp Business API (Meta) | Oficial, estável | Custo/conversa, aprovação, limites |
+| **Evolution API self-hosted** (escolhida) | Gratuito, controle total, open source | Manutenção própria, menos suporte oficial |
+| WhatsApp Web (puppeteer/baileys direto) | Sem dependência | Instável, bloqueios frequentes |
+| Z-API / outros gateways | Gerenciado | Custo mensal, vendor lock-in |
 
-| Evento | Descrição | Handler |
-|--------|-----------|---------|
-| `messages.upsert` | Nova mensagem recebida | Cria Message, atualiza Conversation/Contact |
-| `messages.update` | Status da mensagem (sent/delivered/read/failed) | Atualiza Message.status |
-| `contacts.upsert` | Contato novo/atualizado | Cria/atualiza Contact |
-| `chats.upsert` | Chat/nova conversa | Cria/atualiza Conversation |
-| `instance.update` | Instância atualizada | Log/auditoria |
-| `connection.update` | Status conexão (open/close/connecting) | Atualiza status instância |
-| `qrcode.updated` | QR code novo | Dispara evento para Web exibir |
+## Consequências
 
-## Fluxo de Pareamento (QR Code)
+**Positivas:**
+- Zero custo mensal WhatsApp
+- Controle total sobre instância e dados
+- Webhooks em tempo real
+- Suporte a múltiplos formatos (texto, mídia, localização, etc.)
 
-1. Web chama `POST /api/whatsapp/instance` → API cria instância na Evolution
-2. API chama `GET /instance/connect/{instanceName}` na Evolution → Retorna QR code (base64 ou URL)
-3. Web exibe QR code → Usuário escaneia com WhatsApp
-4. Evolution detecta conexão → Webhook `connection.update` + `qrcode.updated`
-5. API atualiza status → Web remove QR code, mostra "Conectado"
+**Negativas/Riscos:**
+- Evolution API pode ter bugs/breaking changes
+- Self-hosted = responsável por uptime, updates, segurança
+- WhatsApp pode banir número se detectar automação abusiva
+- Precisa gerenciar QR code, reconexão, sessão
 
-## Fluxo de Mensagem Entrante
-
-```
-WhatsApp User → Evolution API → Webhook POST /webhooks/evolution
-  → API valida apikey
-  → Processa payload (message.upsert)
-  → Salva Message (INBOUND) + atualiza Conversation + Contact
-  → Emite WebSocket para Web (real-time)
-  → Verifica AutomationTrigger.MESSAGE_RECEIVED → Executa automações se houver
-```
-
-## Fluxo de Mensagem Saiente
-
-```
-Web (UI) → API POST /api/messages
-  → Valida tenant + permissão (user.role)
-  → Chama Evolution API POST /message/sendText (ou sendMedia, etc.)
-  → Evolution retorna messageId
-  → Salva Message (OUTBOUND, SENT, evolutionMessageId)
-  → Evolution entrega → Webhook messages.update → Status DELIVERED → READ
-```
-
-## Configuração Necessária
-
-### Variáveis de Ambiente
-```bash
-EVOLUTION_API_URL=http://localhost:8080  # ou http://evolution:8080 no Docker
-EVOLUTION_API_KEY=zapti-evolution-key-change-in-production
-EVOLUTION_INSTANCE_NAME=zapti
-WHATSAPP_WEBHOOK_VERIFY_TOKEN=webhook-verify-token
-```
-
-### Endpoints Evolution API Usados
-
-| Método | Endpoint | Uso |
-|--------|----------|-----|
-| POST | `/instance/create` | Criar instância |
-| GET | `/instance/connect/{name}` | Obter QR code |
-| POST | `/instance/setWebhook/{name}` | Configurar webhook |
-| POST | `/message/sendText` | Enviar texto |
-| POST | `/message/sendMedia` | Enviar mídia |
-| GET | `/instance/fetchInstances` | Listar instâncias |
-| DELETE | `/instance/delete/{name}` | Deletar instância |
-
-## Problemas Conhecidos (confirmar)
-
-1. **Webhook não chega** — Evolution no Docker usa `http://api:3000` (nome do serviço), mas se API não estiver saudável, falha
-2. **QR code não aparece** — Evolution pode não gerar QR code se instância já existir ou houver erro de conexão
-3. **Mídias** — Evolution salva mídias em `/media` (volume `evolution_media`); API precisa acessar para download/reenvio
-4. **Schema evolution separado** — Evolution usa schema `evolution` no mesmo Postgres; não conflita com `public` do ZapTI
-5. **Redis prefixo** — Evolution usa prefixo `evolution:` no Redis; ZapTI usa sem prefixo ou outro
+**Neutras:**
+- Schema `evolution` separado no mesmo Postgres
+- Redis prefix `evolution` para isolamento de cache
 
 ## Próximos Passos
 
-- [ ] Subir Evolution: `docker compose up -d evolution`
-- [ ] Testar: `curl http://localhost:8080/`
-- [ ] Criar instância via API ou direto na Evolution
-- [ ] Obter QR code e testar pareamento WhatsApp real
-- [ ] Verificar webhook chegando na API (logs)
-- [ ] Testar envio/recebimento de mensagem
-- [ ] Documentar troubleshooting comum
+- [ ] Subir Evolution API: `docker compose up -d evolution`
+- [ ] Verificar logs: `docker compose logs -f evolution`
+- [ ] Acessar `http://localhost:8080` — verificar se sobe
+- [ ] Criar instância via API: `POST /instance/create`
+- [ ] Obter QR code: `GET /instance/connect/zapti`
+- [ ] Escanear QR no WhatsApp mobile
+- [ ] Verificar `CONNECTION_UPDATE` → `open`
+- [ ] Enviar mensagem teste → webhook chega em `/webhooks/evolution`
+- [ ] Processar `MESSAGES_UPSERT` → Message criada no Prisma
+- [ ] WebSocket emite `new:message` → frontend recebe
 
 ## Referências
 
-- [Arquitetura](../Arquitetura.md) — Seção Evolution API
-- [Visão Geral](../Visao-Geral.md) — URLs de acesso
-- Evolution API Docs: https://doc.evolution-api.com/
-- `apps/api/src/services/whatsapp.ts`
-- `apps/api/src/routes/webhooks.ts`
+- `apps/api/src/routes/webhooks.ts` — endpoint `/webhooks/evolution`
+- `apps/api/src/services/integrations.ts` — `processEvolutionWebhook()`
+- `docker-compose.prod.yml` — serviço `evolution`
+- Evolution API docs: https://doc.evolution-api.com/
+- Handoff.md metas #1, #2

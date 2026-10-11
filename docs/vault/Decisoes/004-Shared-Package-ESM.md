@@ -1,40 +1,82 @@
-# Decisão 004 — Pacote Shared como ESM com Exports Nomeados
+# Decisão 004 — Shared Package como ESM com Exports Nomeados
 
 **Data:** 2026-10-11  
 **Status:** Confirmado
 
 ## Contexto
 
-O pacote `packages/shared` é um módulo ESM (ECMAScript Modules) que exporta funcionalidades compartilhadas entre API e Web via **named exports** organizados por domínio.
+Código compartilhado entre `apps/api` (Fastify/Node) e `apps/web` (Next.js/React) precisa ser:
+- Type-safe
+- Tree-shakeable
+- Funcionar em ambos ambientes (Node + Edge/Next.js)
+- Versionado independentemente
 
-## Estrutura de Exports
+## Decisão
 
-```typescript
-// packages/shared/src/index.ts — Barrel file principal
-export * from './config'
-export * from './auth'
-export * from './email'
-export * from './notification'
-export * from './utils'
-export * from './constants'
-export * from './validation'
-export * from './types'
+**Criar `@zapti/shared` como package ESM puro com `exports` nomeado no `package.json`.**
+
+```json
+// packages/shared/package.json
+{
+  "name": "@zapti/shared",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./config": "./dist/config/index.js",
+    "./auth": "./dist/auth/index.js",
+    "./types": "./dist/types/index.js",
+    "./validation": "./dist/validation/index.js",
+    "./constants": "./dist/constants/index.js",
+    "./email": "./dist/email/index.js",
+    "./notification": "./dist/notification/index.js",
+    "./utils": "./dist/utils/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  }
+}
 ```
 
-### Domínios Disponíveis
+## Estrutura de Módulos
 
-| Import Path | Conteúdo Principal |
-|-------------|-------------------|
-| `@zapti/shared/config` | Zod-validated env config (cached singleton) |
-| `@zapti/shared/auth` | JWT verify/sign, password hash/verify |
-| `@zapti/shared/email` | Nodemailer wrapper (sendEmail) |
-| `@zapti/shared/notification` | NotificationService (email, push, in-app) |
-| `@zapti/shared/utils` | Common utilities (slugify, formatDate, etc.) |
-| `@zapti/shared/constants` | HTTP_STATUS, ERROR_CODES, enums compartilhados |
-| `@zapti/shared/validation` | Zod schemas para validação (user, tenant, etc.) |
-| `@zapti/shared/types` | TypeScript types compartilhados (User, Tenant, etc.) |
+```
+packages/shared/src/
+├── index.ts              # Barrel export (re-exporta tudo)
+├── config/index.ts       # Zod env schema + config()
+├── auth/index.ts         # JWT, bcrypt helpers
+├── types/index.ts        # Types TypeScript compartilhados
+├── validation/index.ts   # Zod schemas para API
+├── constants/index.ts    # Enums, constants
+├── email/index.ts        # Nodemailer wrapper
+├── notification/index.ts # Error notifications (ex: sendErrorNotification)
+└── utils/index.ts        # Helpers gerais
+```
 
-## Configuração TypeScript
+## Consumo nos Apps
+
+```typescript
+// apps/api/src/index.ts
+import { config } from '@zapti/shared/config';
+import { authPlugin } from './plugins/auth'; // usa @zapti/shared/auth internamente
+
+// apps/web/src/lib/api.ts
+import { validateMessage } from '@zapti/shared/validation';
+import { MessageType } from '@zapti/shared/constants';
+```
+
+## Build Order
+
+```
+1. packages/shared    → tsc (gera dist/)
+2. packages/database  → prisma generate + tsc
+3. apps/api           → tsc (depende de @zapti/shared + @zapti/database)
+4. apps/web           → next build (depende de @zapti/shared)
+```
+
+## TypeScript Config (shared)
 
 ```json
 // packages/shared/tsconfig.json
@@ -43,6 +85,7 @@ export * from './types'
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
     "declaration": true,
     "declarationMap": true,
     "outDir": "./dist",
@@ -50,87 +93,54 @@ export * from './types'
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }
 ```
 
-## Package.json
+## Alternativas Consideradas
 
-```json
-{
-  "name": "@zapti/shared",
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    },
-    "./config": "./dist/config/index.js",
-    "./auth": "./dist/auth/index.js",
-    "./email": "./dist/email/index.js",
-    "./notification": "./dist/notification/index.js",
-    "./utils": "./dist/utils/index.js",
-    "./constants": "./dist/constants/index.js",
-    "./validation": "./dist/validation/index.js",
-    "./types": "./dist/types/index.js"
-  },
-  "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
-    "test": "vitest run",
-    "lint": "eslint src --ext .ts"
-  }
-}
-```
+| Opção | Prós | Contras |
+|-------|------|---------|
+| CommonJS (`module: commonjs`) | Compatibilidade ampla | Não tree-shakeable, não funciona bem no Next.js 13+ |
+| **ESM puro com exports** (escolhida) | Moderno, tree-shakeable, Next.js compatible | Requer `type: module`, Node 18+ |
+| Monorepo tools (Turborepo, Nx) | Cache, task orchestration | Overhead, config extra |
+| Git submodules | Isolamento total | DX ruim, sync manual |
+| Copiar arquivos | Zero config | Duplicação, drift |
 
-## Uso na API e Web
+## Consequências
 
-### API (Fastify)
-```typescript
-// apps/api/src/plugins/auth.ts
-import { verifyToken, hashPassword } from '@zapti/shared/auth'
-import { config } from '@zapti/shared/config'
-```
+**Positivas:**
+- Single source of truth para config, auth, types, validation
+- Tree-shaking: apps importam só o que usam
+- TypeScript types compartilhados (zero drift)
+- Versionamento semver independente
+- Funciona em Node (API) e Edge/Next.js (Web)
 
-### Web (Next.js)
-```typescript
-// apps/web/src/lib/api.ts
-import { config } from '@zapti/shared/config'
-// Path alias configurado no tsconfig.json da web:
-// "@zapti/shared/*": "../../packages/shared/src/*"
-```
+**Negativas/Riscos:**
+- Build order obrigatório (shared → database → api → web)
+- `packages/shared/dist` deve ser committado ou gerado em CI
+- Next.js precisa de `transpilePackages: ['@zapti/shared']` no `next.config.js`
+- Mudanças breaking no shared exigem bump de versão + update nos apps
 
-## Build Order
-
-**Obrigatório:** Build do `shared` **antes** de `api` e `web`
-```bash
-npm run build --workspace=packages/shared
-npm run build --workspace=packages/database
-npm run build --workspace=apps/api
-npm run build --workspace=apps/web
-```
-
-Ou simplesmente: `npm run build` na raiz (workspaces na ordem correta via dependencies).
-
-## Problema Conhecido (confirmar)
-
-- **Função `sendErrorNotification` removida** de `notification/index.ts` — verificar se há imports quebrados na API ou Web
-- TypeScript errors em alguns arquivos do shared — rodar `npm run typecheck --workspace=packages/shared`
+**Neutras:**
+- `packages/shared` não tem `prisma` — apenas types/utils
+- `packages/database` é package separado (gera Prisma Client)
 
 ## Próximos Passos
 
-- [ ] Verificar build limpo do shared (`npm run build --workspace=packages/shared`)
-- [ ] Confirmar que `sendErrorNotification` não é importada em nenhum lugar
-- [ ] Rodar testes do shared (`npm run test --workspace=packages/shared`)
+- [ ] Confirmar `next.config.js` tem `transpilePackages: ['@zapti/shared']`
+- [ ] Verificar `apps/api/tsconfig.json` resolve `@zapti/shared/*` via paths
+- [ ] Build order no Dockerfile da API: copiar shared, buildar, depois api
+- [ ] Adicionar script `build:all` no root package.json
+- [ ] Documentar versionamento (semver) do @zapti/shared
 
 ## Referências
 
-- `packages/shared/src/index.ts`
-- `packages/shared/package.json`
-- `packages/shared/tsconfig.json`
-- [Arquitetura](../Arquitetura.md) — Seção Shared Package
+- `packages/shared/src/index.ts` (barrel export)
+- `packages/shared/package.json` (exports map)
+- `apps/api/src/index.ts` (imports @zapti/shared/config)
+- Handoff.md risco #3 (sendErrorNotification removida)

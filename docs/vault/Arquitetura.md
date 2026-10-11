@@ -1,259 +1,327 @@
-# Arquitetura — ZapTI
+# Arquitetura do ZapTI
 
-## Visão Geral dos Componentes
+## Diagrama de Componentes
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        CLIENTE (Browser)                        │
-│                      Next.js Web (3001)                         │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │ HTTP/WS
-                           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                        API GATEWAY                              │
-│                     Fastify API (3000)                          │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐  │
-│  │ Auth    │ │ Tenant  │ │ Rate    │ │ CORS    │ │ Helmet  │  │
-│  │ Plugin  │ │ Plugin  │ │ Limit   │ │ Plugin  │ │ Plugin  │  │
-│  └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘  │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │
-         ┌─────────────────┼─────────────────┐
-         ▼                 ▼                 ▼
-┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│   POSTGRES      │ │     REDIS       │ │  EVOLUTION API  │
-│  (Port 5432)    │ │  (Port 6379)    │ │   (Port 8080)   │
-│                 │ │                 │ │                 │
-│ Schema: public  │ │ Cache, Sessions,│ │ WhatsApp        │
-│ Schema: evolution│ │ Queues        │ │ Business API    │
-└─────────────────┘ └─────────────────┘ └─────────────────┘
+```mermaid
+graph TB
+    subgraph "Client"
+        Browser[Browser :3001]
+    end
+
+    subgraph "Docker Network (zapti-network)"
+        Web[web :3001<br/>Next.js]
+        API[api :3000<br/>Fastify]
+        Evolution[evolution :8080<br/>Evolution API]
+        Postgres[(postgres :5432<br/>PostgreSQL 16)]
+        Redis[(redis :6379<br/>Redis 7)]
+    end
+
+    Browser -->|HTTPS| Web
+    Web -->|REST/WS| API
+    API -->|Prisma| Postgres
+    API -->|Cache/Queue| Redis
+    API -->|WhatsApp| Evolution
+    Evolution -->|Webhook| API
+    Evolution -->|DB| Postgres
+    Evolution -->|Cache| Redis
 ```
 
-## API (Fastify) — `apps/api`
+## Fluxo de Dados Principal
 
-### Entry Point
-- `src/index.ts` — Bootstrap, registra plugins, rotas, WebSocket, error handling
+### 1. Inbound Message (WhatsApp → ZapTI)
+```
+WhatsApp User
+    │
+    ▼
+Evolution API (porta 8080)
+    │  Processa mensagem
+    │  Salva no schema evolution
+    ▼
+Webhook POST /webhooks/evolution
+    │
+    ▼
+Fastify API (porta 3000)
+    │  processEvolutionWebhook()
+    │  Identifica tenant via instance
+    │  Cria/atualiza Contact
+    │  Cria/atualiza Conversation
+    │  Cria Message (INBOUND)
+    │  Dispara AutomationTrigger.NEW_MESSAGE
+    ▼
+WebSocket → Frontend (tempo real)
+```
 
-### Plugins (`src/plugins/`)
-| Plugin | Responsabilidade |
-|--------|------------------|
-| `auth.ts` | JWT verification, decorator `authenticate` no request, resolução de tenant |
-| `cors.ts` | CORS configuration |
-| `helmet.ts` | Security headers |
-| `rate-limit.ts` | Rate limiting |
-| `jwt.ts` | JWT sign/verify configuration |
-| `swagger.ts` | OpenAPI/Swagger documentation |
-| `multipart.ts` | File upload handling |
-| `tenant.ts` | Tenant resolution from JWT/header |
+### 2. Outbound Message (Agent → WhatsApp)
+```
+Agent (Web UI)
+    │
+    ▼
+POST /api/messages (OUTBOUND)
+    │
+    ▼
+Fastify API
+    │  Valida tenant, conversation
+    │  Cria Message (OUTBOUND, status=SENT)
+    │  Chama Evolution API /message/sendText
+    ▼
+Evolution API
+    │  Envia para WhatsApp
+    ▼
+Webhook (status update) → API → Message.status = DELIVERED/READ
+```
 
-### Rotas (`src/routes/`) — Todas sob prefixo `/api`
-| Rota | Responsabilidade |
-|------|------------------|
-| `health.ts` | Health check |
-| `auth.ts` | Login, register, refresh token, password reset |
-| `tenants.ts` | CRUD tenants |
-| `users.ts` | CRUD usuários do tenant |
-| `contacts.ts` | CRUD contatos WhatsApp |
-| `conversations.ts` | Conversas/Chats |
-| `messages.ts` | Mensagens (envio/recebimento) |
-| `tickets.ts` | Helpdesk tickets |
-| `groups.ts` | Grupos WhatsApp |
-| `campaigns.ts` | Campanhas de disparo |
-| `automations.ts` | Automações (fluxos) |
-| `webhooks.ts` | Webhooks Evolution API |
-| `integrations.ts` | Integrações externas |
-| `settings.ts` | Configurações do tenant |
-| `audit.ts` | Logs de auditoria |
+## Modelos de Dados Principais (Prisma)
 
-### Serviços (`src/services/`)
-| Serviço | Responsabilidade |
-|---------|------------------|
-| `prisma.ts` | Prisma Client singleton |
-| `websocket.ts` | WebSocket server para real-time |
-| `whatsapp.ts` | Integração Evolution API (send/receive) |
-| `automation.ts` | Motor de automações |
-| `campaign.ts` | Processamento de campanhas |
-| `integrations.ts` | Integrações terceiras |
+### Core Entities
+```
+Tenant (1) ──────< User
+Tenant (1) ──────< Contact
+Tenant (1) ──────< Conversation
+Conversation (1) ─< Message
+Conversation (1) ─< Ticket
+Tenant (1) ──────< Ticket
+Tenant (1) ──────< Group
+Tenant (1) ──────< Campaign
+Tenant (1) ──────< Automation
+Tenant (1) ──────< Integration
+Tenant (1) ──────< Webhook
+Tenant (1) ──────< Setting
+Tenant (1) ──────< AuditLog
+Tenant (1) ──────< Template
+```
 
-## Database (Prisma) — `packages/database`
-
-### Schema Principal
-`prisma/schema.prisma` — **Single source of truth**
-
-### Models Principais
-| Model | Descrição |
-|-------|-----------|
-| `Tenant` | Empresa/cliente (isolamento multi-tenant) |
-| `User` | Usuários do tenant (admin, agent) |
-| `Contact` | Contatos WhatsApp |
-| `Conversation` | Conversas/chats |
-| `Message` | Mensagens individuais |
-| `Ticket` | Tickets de helpdesk |
-| `Group` | Grupos WhatsApp |
-| `Campaign` | Campanhas de mensagem em massa |
-| `Automation` | Fluxos de automação |
-| `Webhook` | Webhooks configurados |
-| `Integration` | Integrações externas |
-| `Setting` | Configurações por tenant |
-| `AuditLog` | Logs de auditoria |
-| `Template` | Templates de mensagem |
-| `RefreshToken` | Tokens de refresh JWT |
-| `PasswordReset` | Tokens de reset de senha |
-| `CampaignLog` | Logs de execução de campanha |
-| `AutomationExecution` | Execuções de automação |
-
-### Enums
-- `UserRole`: ADMIN, AGENT
-- `ConversationStatus`: OPEN, CLOSED, PENDING
-- `Priority`: LOW, MEDIUM, HIGH, URGENT
-- `MessageType`: TEXT, IMAGE, VIDEO, AUDIO, DOCUMENT, LOCATION, CONTACT, STICKER
+### Enums-Chave
+- `UserRole`: ADMIN, SUPER_ADMIN, AGENT, VIEWER
+- `ConversationStatus`: OPEN, PENDING, RESOLVED, CLOSED, SPAM
+- `MessageType`: TEXT, IMAGE, AUDIO, VIDEO, DOCUMENT, LOCATION, CONTACT, STICKER, REACTION, TEMPLATE
 - `MessageDirection`: INBOUND, OUTBOUND
-- `MessageStatus`: SENT, DELIVERED, READ, FAILED
-- `TicketStatus`: OPEN, IN_PROGRESS, WAITING_CUSTOMER, RESOLVED, CLOSED
-- `GroupRole`: ADMIN, MEMBER
-- `CampaignStatus`: DRAFT, SCHEDULED, SENDING, SENT, FAILED, CANCELLED
-- `AutomationTrigger`: MESSAGE_RECEIVED, KEYWORD, TIME_SCHEDULE, WEBHOOK
-- `IntegrationType`: WEBHOOK, API, ZAPIER
-- `TemplateStatus`: DRAFT, SUBMITTED, APPROVED, REJECTED
+- `TicketStatus`: OPEN, IN_PROGRESS, PENDING, RESOLVED, CLOSED
+- `AutomationTrigger`: NEW_MESSAGE, NEW_CONVERSATION, KEYWORD_MATCH, TIME_BASED, CONTACT_TAG_ADDED, TICKET_CREATED, TICKET_STATUS_CHANGED
 
-### Isolamento Multi-Tenant
-**Todos os models têm `tenantId`** — queries sempre filtram por `tenantId` resolvido do JWT ou header.
+## Autenticação & Autorização
 
-## Shared Package — `packages/shared`
+### JWT Strategy
+```
+Access Token  (15min)  → header Authorization: Bearer <token>
+Refresh Token (7d)     → httpOnly cookie / body
+```
 
-### Exports (ESM named exports)
+**Payload:**
 ```typescript
-// Configuração validada com Zod (cached)
-import { config } from '@zapti/shared/config'
-
-// Auth: JWT verify/sign, password hash
-import { verifyToken, signToken, hashPassword, verifyPassword } from '@zapti/shared/auth'
-
-// Email: Nodemailer wrapper
-import { sendEmail } from '@zapti/shared/email'
-
-// Notification service
-import { notificationService } from '@zapti/shared/notification'
-
-// Utilities
-import { slugify, formatDate, ... } from '@zapti/shared/utils'
-
-// Constants
-import { HTTP_STATUS, ERROR_CODES, ... } from '@zapti/shared/constants'
-
-// Validation: Zod schemas
-import { userSchema, tenantSchema, ... } from '@zapti/shared/validation'
-
-// Types
-import { User, Tenant, ... } from '@zapti/shared/types'
-```
-
-## Web (Next.js 14) — `apps/web`
-
-### Estrutura (App Router)
-```
-src/
-├── app/                    # Páginas (route segments)
-│   ├── (auth)/            # Login, register, password reset
-│   ├── (dashboard)/       # Dashboard protegido
-│   │   ├── tenants/
-│   │   ├── conversations/
-│   │   ├── tickets/
-│   │   ├── campaigns/
-│   │   ├── automations/
-│   │   ├── settings/
-│   │   └── ...
-│   └── api/               # API routes (proxy para Fastify)
-├── components/            # Componentes React
-│   ├── ui/               # Primitivas Radix + Tailwind
-│   ├── forms/
-│   ├── tables/
-│   └── ...
-├── hooks/                # Custom hooks (TanStack Query, etc.)
-├── lib/                  # Utilitários cliente
-├── styles/               # globals.css, tailwind
-└── types/                # Types locais
-```
-
-### Stack UI
-- **Radix UI** — Primitivas acessíveis
-- **Tailwind CSS** — Estilização
-- **class-variance-authority** — Variantes de componentes
-- **React Hook Form + Zod** — Formulários + validação
-
-### State Management
-- **TanStack Query** — Server state (cache, sync, mutations)
-- **Zustand** — Client state (UI, auth token, etc.)
-
-### Path Aliases
-```json
-{
-  "@/*": "./src/*",
-  "@zapti/shared/*": "../../packages/shared/src/*"
+interface JWTPayload {
+  sub: string;        // userId
+  email: string;
+  role: UserRole;
+  tenantId: string;   // CRITICAL para multi-tenancy
+  iat?: number;
+  exp?: number;
 }
 ```
 
-## Docker Compose (Produção Local)
-
-### Serviços
-| Serviço | Imagem | Porta | Healthcheck |
-|---------|--------|-------|-------------|
-| postgres | postgres:16-alpine | 5432 | pg_isready |
-| redis | redis:7-alpine | 6379 | redis-cli ping |
-| evolution | evoapicloud/evolution-api:latest | 8080 | wget / |
-| api | Build local (apps/api/Dockerfile) | 3000 | wget /health |
-| web | Build local (apps/web/Dockerfile) | 3001 | (depends on api) |
-
-### Volumes Persistentes
-- `postgres_data` — Dados PostgreSQL
-- `redis_data` — Dados Redis
-- `evolution_media` — Mídias WhatsApp
-- `evolution_instances` — Instâncias Evolution
-
-### Network
-- `zapti-network` — Bridge network interna
-
-### Webhook Evolution → API
+### Middleware Chain (Fastify)
 ```
-Evolution API (8080) 
-  ── webhook events ──► 
-API (3000) /webhooks/evolution
-```
-Eventos: `messages.upsert`, `messages.update`, `contacts.upsert`, `chats.upsert`, `instance.update`, `connection.update`, `qrcode.updated`
-
-## Fluxo de Dados Principais
-
-### 1. Recebimento de Mensagem WhatsApp
-```
-WhatsApp → Evolution API → Webhook POST /webhooks/evolution
-  → API valida assinatura → Processa mensagem
-  → Salva Message + atualiza Conversation + Contact
-  → Dispara WebSocket para Web (real-time)
-  → Verifica automações (AutomationTrigger.MESSAGE_RECEIVED)
+Request
+  │
+  ▼
+helmet (security headers)
+  │
+  ▼
+cors (CORS_ORIGIN)
+  │
+  ▼
+rateLimit (100 req/60s)
+  │
+  ▼
+jwt.verify() → decode → attach user
+  │
+  ▼
+tenantPlugin → resolve tenantId → attach tenant
+  │
+  ▼
+Route Handler (com user + tenant no request)
 ```
 
-### 2. Envio de Mensagem
+## WebSocket (Tempo Real)
+
 ```
-Web (UI) → API POST /api/messages
-  → Valida tenant + permissão
-  → Chama Evolution API sendMessage
-  → Salva Message (OUTBOUND, SENT)
-  → Evolution entrega → Webhook messages.update → Status DELIVERED/READ
+Client (Web)                    Server (API)
+    │                               │
+    ├── WS connect (token) ────────►│
+    │                               │ authPlugin.ws()
+    │                               │ verify token
+    │                               │ join tenant room
+    │◄──────────────────────────────┤
+    │                               │
+    ├── subscribe:conversation ────►│
+    │                               │ join conversation room
+    │                               │
+    │◄──── new:message ─────────────│  (quando Message criada)
+    │◄──── update:conversation ─────│  (status, priority)
+    │◄──── new:ticket ─────────────│
+    │                               │
 ```
 
-### 3. Autenticação
-```
-Login (email/password) → API POST /api/auth/login
-  → Verifica credenciais → Gera JWT (access + refresh)
-  → JWT contém: userId, tenantId, role
-  → Próximas requests: Authorization: Bearer <token>
-  → Plugin auth.ts valida → request.user + request.tenant
+**Eventos emitidos:**
+- `new:message` — nova mensagem na conversa
+- `update:conversation` — mudança de status/prioridade/atribução
+- `new:ticket` — ticket criado
+- `update:ticket` — ticket atualizado
+- `notification` — notificações gerais
+
+## Evolution API Integration
+
+### Configuração (docker-compose)
+```yaml
+evolution:
+  image: evoapicloud/evolution-api:latest
+  environment:
+    DATABASE_CONNECTION_URI: "postgresql://postgres:postgres@postgres:5432/zapti?schema=evolution"
+    REDIS_URI: "redis://redis:6379"
+    REDIS_PREFIX: "evolution"
+    WEBHOOK_URL: "http://api:3000/webhooks/evolution"
+    WEBHOOK_EVENTS: "MESSAGES_UPSERT,CONNECTION_UPDATE,QRCODE_UPDATED"
 ```
 
-## Pontos de Atenção (confirmar)
+### Webhook Endpoint
+```
+POST /webhooks/evolution
+Headers:
+  - apikey: <EVOLUTION_API_KEY>
+  - content-type: application/json
 
-1. **Dois schemas Prisma** — `apps/api/prisma/schema.prisma` e `packages/database/prisma/schema.prisma` divergem
-2. **CampaignLog** — Referenciado em `Campaign.logs` mas pode ter sido removido do schema da API
-3. **sendErrorNotification** — Removida de `packages/shared/src/notification/index.ts`, verificar imports
-4. **TypeScript errors** — Múltiplos arquivos com diagnósticos
-5. **Evolution API** — Não verificado end-to-end (instância, QR code, webhook)
+Body: EvolutionWebhookPayload
+  - event: MESSAGES_UPSERT | CONNECTION_UPDATE | QRCODE_UPDATED
+  - instance: string
+  - data: any
+```
+
+### Processamento (services/integrations.ts)
+```typescript
+async function processEvolutionWebhook(payload: EvolutionWebhookPayload) {
+  switch (payload.event) {
+    case 'MESSAGES_UPSERT':
+      await handleInboundMessages(payload.data.messages);
+      break;
+    case 'CONNECTION_UPDATE':
+      await handleConnectionUpdate(payload.data);
+      break;
+    case 'QRCODE_UPDATED':
+      await handleQRCode(payload.data);
+      break;
+  }
+}
+```
+
+## Automações (Automation Engine)
+
+### Trigger → Conditions → Actions
+```
+Automation
+  ├── trigger: AutomationTrigger (enum)
+  ├── conditions: Json (filtros: contact.tags, message.content, etc.)
+  └── actions: Json [
+        { type: "SEND_MESSAGE", templateId, delayMs },
+        { type: "ASSIGN_AGENT", userId },
+        { type: "CREATE_TICKET", priority },
+        { type: "ADD_TAG", tag },
+        { type: "WEBHOOK", url, payload }
+      ]
+```
+
+### Execução
+```
+Trigger event (ex: NEW_MESSAGE)
+    │
+    ▼
+Find active automations for tenant with matching trigger
+    │
+    ▼
+Evaluate conditions (JSON path / JMESPath)
+    │
+    ▼
+For each passing automation:
+    Create AutomationExecution (status=RUNNING)
+    Execute actions sequentially
+    Update execution status (COMPLETED/FAILED)
+    Emit WebSocket events
+```
+
+## Rotas da API (Resumo)
+
+| Módulo | Rotas | Descrição |
+|--------|-------|-----------|
+| `auth` | POST /login, /refresh, /logout, /me | Autenticação JWT |
+| `tenants` | CRUD /tenants | Gestão de tenants |
+| `users` | CRUD /users | Usuários do tenant |
+| `contacts` | CRUD /contacts, /import | Contatos WhatsApp |
+| `conversations` | CRUD /conversations, /assign, /status | Conversas |
+| `messages` | CRUD /messages, /send | Mensagens in/out |
+| `tickets` | CRUD /tickets, /comments, /assign | Tickets helpdesk |
+| `groups` | CRUD /groups, /members | Grupos WhatsApp |
+| `campaigns` | CRUD /campaigns, /send, /logs | Campanhas disparo |
+| `automations` | CRUD /automations, /executions | Automações |
+| `webhooks` | POST /webhooks/evolution | Receber Evolution |
+| `integrations` | CRUD /integrations | Integrações externas |
+| `settings` | CRUD /settings | Configurações tenant |
+| `templates` | CRUD /templates | Templates WhatsApp |
+| `audit` | GET /audit | Logs de auditoria |
+| `health` | GET /health, /ready | Health checks |
+
+## Variáveis de Ambiente Críticas
+
+| Variável | Onde | Descrição |
+|----------|------|-----------|
+| `DATABASE_URL` | api, evolution | PostgreSQL connection string |
+| `REDIS_URL` | api, evolution | Redis connection |
+| `JWT_SECRET` | api | Chave assinatura tokens (min 32 chars) |
+| `EVOLUTION_API_URL` | api | http://evolution:8080 (interno) |
+| `EVOLUTION_API_KEY` | api, evolution | Chave compartilhada auth webhook |
+| `EVOLUTION_INSTANCE_NAME` | api | Nome instância WhatsApp (default: zapti) |
+| `CORS_ORIGIN` | api | http://localhost:3000 (dev) |
+| `NEXT_PUBLIC_API_URL` | web | http://localhost:3000 |
+| `NEXT_PUBLIC_WS_URL` | web | ws://localhost:3000 |
+
+## Health Checks
+
+| Serviço | Endpoint | Critério |
+|---------|----------|----------|
+| postgres | `pg_isready -U postgres` | TCP + auth |
+| redis | `redis-cli ping` | PONG |
+| evolution | `wget http://localhost:8080/` | HTTP 200 |
+| api | `wget http://localhost:3000/health` | HTTP 200 + DB/Redis ok |
+| web | (Next.js built-in) | HTTP 200 |
+
+## Índices de Performance (Prisma)
+
+Principais índices compostos recomendados:
+```prisma
+// Conversation - queries por tenant + status + lastMessageAt
+@@index([tenantId, status, lastMessageAt])
+
+// Message - queries por conversation + createdAt
+@@index([conversationId, createdAt])
+
+// Ticket - queries por tenant + status + assignee
+@@index([tenantId, status, assignedToId])
+
+// AuditLog - queries por tenant + createdAt
+@@index([tenantId, createdAt])
+```
+
+## Segurança
+
+- **Helmet**: CSP desabilitado (Swagger UI), headers padrão
+- **CORS**: Origin restrito, credentials true
+- **Rate Limit**: 100 req/60s por IP
+- **JWT**: RS256 ou HS256 (config), access 15min, refresh 7d
+- **Passwords**: bcrypt cost 12
+- **2FA**: TOTP (speakeasy), backup codes
+- **Audit Log**: Todas mutações sensíveis
+- **Tenant Isolation**: Middleware injeta tenantId, Prisma filtra automaticamente
+
+## Observabilidade
+
+- **Logs**: Pino (pretty em dev, JSON em prod)
+- **Health**: `/health` (liveness), `/ready` (readiness + deps)
+- **Swagger**: `/docs` (OpenAPI 3.0)
+- **Audit**: Tabela `AuditLog` com oldData/newData JSON
