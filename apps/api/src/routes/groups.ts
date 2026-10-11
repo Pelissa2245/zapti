@@ -5,12 +5,6 @@ import { ERROR_CODES, WEBSOCKET_EVENTS } from '@zapti/shared/constants';
 import { PaginationQuerySchema, IdParamSchema, SearchQuerySchema } from '@zapti/shared/validation';
 import { broadcastToWebsocket } from '@zapti/shared/notification';
 
-declare module 'fastify' {
-  interface FastifyRequest {
-    tenant: any;
-    user: any;
-  }
-}
 
 export async function groupRoutes(fastify: FastifyInstance): Promise<void> {
   // List groups

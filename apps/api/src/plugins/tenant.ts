@@ -1,17 +1,12 @@
-import { FastifyPluginAsync } from 'fastify';
+import { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { config } from '@zapti/shared/config';
-
-declare module 'fastify' {
-  interface FastifyRequest {
-    tenant?: any;
-  }
-}
+import { JWTPayload } from '@zapti/shared/auth';
 
 const tenantPlugin: FastifyPluginAsync = async (app) => {
   const cfg = config();
 
   // Tenant resolution middleware
-  app.addHook('preHandler', async (request, reply) => {
+  app.addHook('preHandler', async (request: FastifyRequest, reply) => {
     // Skip tenant resolution for health checks and public endpoints
     const publicPaths = ['/health', '/docs', '/auth/login', '/auth/register', '/auth/refresh', '/settings/public'];
 
@@ -27,23 +22,25 @@ const tenantPlugin: FastifyPluginAsync = async (app) => {
       tenantId = request.headers['x-tenant-id'] as string;
     }
     // Priority 2: From authenticated user
-    else if (request.user?.tenantId) {
-      tenantId = request.user.tenantId;
+    const user = request.user as JWTPayload | undefined;
+    if (!tenantId && user?.tenantId) {
+      tenantId = user.tenantId;
     }
     // Priority 3: From subdomain (for multi-tenant deployments)
-    else if (cfg.enableSubdomainTenants) {
-      const host = request.headers.host;
-      if (host) {
-        const subdomain = host.split('.')[0];
-        if (subdomain && subdomain !== 'www' && subdomain !== 'api' && subdomain !== 'app') {
-          const { prisma } = await import('../services/prisma');
-          const tenant = await prisma.tenant.findUnique({
-            where: { slug: subdomain },
-          });
-          if (tenant) tenantId = tenant.id;
-        }
-      }
-    }
+    // Disabled - requires ENABLE_SUBDOMAIN_TENANTS env var and config
+    // else if (cfg.ENABLE_SUBDOMAIN_TENANTS) {
+    //   const host = request.headers.host;
+    //   if (host) {
+    //     const subdomain = host.split('.')[0];
+    //     if (subdomain && subdomain !== 'www' && subdomain !== 'api' && subdomain !== 'app') {
+    //       const { prisma } = await import('../services/prisma.js');
+    //       const tenant = await prisma.tenant.findUnique({
+    //         where: { slug: subdomain },
+    //       });
+    //       if (tenant) tenantId = tenant.id;
+    //     }
+    //   }
+    // }
 
     if (!tenantId) {
       return reply.status(400).send({
@@ -53,7 +50,7 @@ const tenantPlugin: FastifyPluginAsync = async (app) => {
     }
 
     // Fetch tenant
-    const { prisma } = await import('../services/prisma');
+    const { prisma } = await import('../services/prisma.js');
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
     });
@@ -72,7 +69,19 @@ const tenantPlugin: FastifyPluginAsync = async (app) => {
       });
     }
 
-    request.tenant = tenant;
+    // Attach tenant with only needed fields to match Fastify type declarations
+    request.tenant = {
+      id: tenant.id,
+      name: tenant.name,
+      isActive: tenant.isActive,
+      slug: tenant.slug,
+      domain: tenant.domain,
+      logo: tenant.logo,
+      primaryColor: tenant.primaryColor,
+      secondaryColor: tenant.secondaryColor,
+      accentColor: tenant.accentColor,
+      fontFamily: tenant.fontFamily,
+    };
   });
 
   // Decorate with tenant helper

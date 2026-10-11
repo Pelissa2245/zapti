@@ -5,12 +5,6 @@ import { ERROR_CODES, INTEGRATION_TYPE, INTEGRATION_STATUS, WEBSOCKET_EVENTS } f
 import { PaginationQuerySchema, IdParamSchema, SearchQuerySchema } from '@zapti/shared/validation';
 import { broadcastToWebsocket } from '@zapti/shared/notification';
 
-declare module 'fastify' {
-  interface FastifyRequest {
-    tenant: any;
-    user: any;
-  }
-}
 
 export async function integrationRoutes(fastify: FastifyInstance): Promise<void> {
   // List integrations

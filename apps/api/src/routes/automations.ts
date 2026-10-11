@@ -5,12 +5,6 @@ import { ERROR_CODES, AUTOMATION_TRIGGER, AUTOMATION_ACTION } from '@zapti/share
 import { PaginationQuerySchema, IdParamSchema, SearchQuerySchema } from '@zapti/shared/validation';
 import { broadcastToWebsocket } from '@zapti/shared/notification';
 
-declare module 'fastify' {
-  interface FastifyRequest {
-    tenant: any;
-    user: any;
-  }
-}
 
 export async function automationRoutes(fastify: FastifyInstance): Promise<void> {
   // List automations

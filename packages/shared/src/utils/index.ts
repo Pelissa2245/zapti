@@ -297,10 +297,7 @@ export async function timeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 // Pagination
-export interface PaginationParams {
-  page: number;
-  limit: number;
-}
+import type { PaginationParams } from '../types/index.js';
 
 export interface PaginationResult<T> {
   data: T[];

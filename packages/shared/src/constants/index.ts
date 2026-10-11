@@ -14,6 +14,7 @@ export const ERROR_CODES = {
   // Resources
   NOT_FOUND: 'NOT_FOUND',
   CONFLICT: 'CONFLICT',
+  TENANT_NOT_FOUND: 'TENANT_NOT_FOUND',
 
   // Operations
   INTERNAL_ERROR: 'INTERNAL_ERROR',
@@ -23,6 +24,7 @@ export const ERROR_CODES = {
 
   // Rate limiting
   RATE_LIMIT_EXCEEDED: 'RATE_LIMIT_EXCEEDED',
+  RATE_LIMITED: 'RATE_LIMITED',
 
   // File upload
   FILE_TOO_LARGE: 'FILE_TOO_LARGE',
@@ -134,6 +136,28 @@ export const INTEGRATION_TYPES = {
   WHATSAPP_BUSINESS: 'WHATSAPP_BUSINESS',
   SMTP: 'SMTP',
   WEBHOOK: 'WEBHOOK',
+} as const;
+
+// Webhook events
+export const WEBHOOK_EVENTS = {
+  // Evolution API events
+  EVOLUTION_MESSAGES_UPSERT: 'messages.upsert',
+  EVOLUTION_MESSAGES_UPDATE: 'messages.update',
+  EVOLUTION_CONNECTION_UPDATE: 'connection.update',
+  EVOLUTION_QRCODE_UPDATED: 'qrcode.updated',
+  EVOLUTION_CALL: 'call',
+  EVOLUTION_PRESENCE: 'presence',
+
+  // WhatsApp Business API events
+  WHATSAPP_MESSAGE: 'message',
+  WHATSAPP_MESSAGE_STATUS: 'message_status',
+  WHATSAPP_CONTACT: 'contact',
+
+  // Generic webhook events
+  INBOUND_MESSAGE: 'inbound_message',
+  OUTBOUND_MESSAGE: 'outbound_message',
+  MESSAGE_STATUS_UPDATE: 'message_status_update',
+  CONVERSATION_UPDATE: 'conversation_update',
 } as const;
 
 // WebSocket events

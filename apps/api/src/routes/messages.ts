@@ -5,12 +5,6 @@ import { ERROR_CODES, MESSAGE_TYPE, MESSAGE_DIRECTION, MESSAGE_STATUS, WEBSOCKET
 import { PaginationQuerySchema, IdParamSchema } from '@zapti/shared/validation';
 import { broadcastToWebsocket } from '@zapti/shared/notification';
 
-declare module 'fastify' {
-  interface FastifyRequest {
-    tenant: any;
-    user: any;
-  }
-}
 
 export async function messageRoutes(fastify: FastifyInstance): Promise<void> {
   // List messages (with conversation filter)

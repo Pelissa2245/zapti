@@ -5,12 +5,6 @@ import { ERROR_CODES, SETTING_KEYS, WEBSOCKET_EVENTS } from '@zapti/shared/const
 import { UpdateSettingsSchema, PaginationQuerySchema } from '@zapti/shared/validation';
 import { broadcastToWebsocket } from '@zapti/shared/notification';
 
-declare module 'fastify' {
-  interface FastifyRequest {
-    tenant: any;
-    user: any;
-  }
-}
 
 export async function settingRoutes(fastify: FastifyInstance): Promise<void> {
   // Get all settings

@@ -1,32 +1,33 @@
 import nodemailer from 'nodemailer';
-import { config } from '../config';
+import type { Transporter, SendMailOptions } from 'nodemailer';
+import { config } from '../config/index.js';
 
 export interface EmailOptions {
   to: string | string[];
   subject: string;
   text?: string;
   html?: string;
-  attachments?: nodemailer.SendMailOptions['attachments'];
+  attachments?: SendMailOptions['attachments'];
 }
 
-let transporter: nodemailer.Transporter | null = null;
+let transporter: Transporter | null = null;
 
-export function getTransporter(): nodemailer.Transporter {
+export function getTransporter(): Transporter {
   if (transporter) return transporter;
 
   const cfg = config();
 
-  if (!cfg.smtpHost || !cfg.smtpPort || !cfg.smtpUser || !cfg.smtpPass || !cfg.smtpFrom) {
+  if (!cfg.SMTP_HOST || !cfg.SMTP_PORT || !cfg.SMTP_USER || !cfg.SMTP_PASS || !cfg.SMTP_FROM) {
     throw new Error('SMTP configuration not complete');
   }
 
   transporter = nodemailer.createTransport({
-    host: cfg.smtpHost,
-    port: cfg.smtpPort,
-    secure: cfg.smtpPort === 465,
+    host: cfg.SMTP_HOST,
+    port: cfg.SMTP_PORT,
+    secure: cfg.SMTP_PORT === 465,
     auth: {
-      user: cfg.smtpUser,
-      pass: cfg.smtpPass,
+      user: cfg.SMTP_USER,
+      pass: cfg.SMTP_PASS,
     },
   });
 
@@ -39,7 +40,7 @@ export async function sendEmail(options: EmailOptions): Promise<{ success: boole
     const cfg = config();
 
     const info = await transporter.sendMail({
-      from: cfg.smtpFrom,
+      from: cfg.SMTP_FROM,
       to: Array.isArray(options.to) ? options.to.join(', ') : options.to,
       subject: options.subject,
       text: options.text,

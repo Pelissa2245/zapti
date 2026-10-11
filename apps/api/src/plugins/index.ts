@@ -15,7 +15,7 @@ export async function registerPlugins(app: FastifyInstance): Promise<void> {
 
   // CORS
   await app.register(cors, {
-    origin: cfg.app.corsOrigin === '*' ? true : cfg.app.corsOrigin,
+    origin: cfg.CORS_ORIGIN === '*' ? true : cfg.CORS_ORIGIN,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
@@ -23,7 +23,7 @@ export async function registerPlugins(app: FastifyInstance): Promise<void> {
 
   // Helmet for security headers
   await app.register(helmet, {
-    contentSecurityPolicy: cfg.app.nodeEnv === 'production' ? {
+    contentSecurityPolicy: cfg.NODE_ENV === 'production' ? {
       directives: {
         defaultSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
@@ -37,23 +37,22 @@ export async function registerPlugins(app: FastifyInstance): Promise<void> {
 
   // Rate limiting
   await app.register(rateLimit, {
-    max: 100,
-    timeWindow: '1 minute',
-    errorMessage: 'Too many requests, please try again later',
+    max: cfg.RATE_LIMIT_MAX,
+    timeWindow: cfg.RATE_LIMIT_WINDOW_MS,
     keyGenerator: (req) => req.ip,
     skipOnError: true,
   });
 
   // Cookie parser
   await app.register(cookie, {
-    secret: cfg.jwt.accessSecret,
+    secret: cfg.JWT_SECRET,
     parseOptions: {},
   });
 
   // JWT authentication
   await app.register(jwt, {
-    secret: cfg.jwt.accessSecret,
-    sign: { expiresIn: cfg.jwt.accessExpiresIn },
+    secret: cfg.JWT_SECRET,
+    sign: { expiresIn: cfg.JWT_ACCESS_EXPIRY },
     verify: { algorithms: ['HS256'] },
     cookie: {
       cookieName: 'accessToken',
@@ -64,7 +63,7 @@ export async function registerPlugins(app: FastifyInstance): Promise<void> {
   // Multipart for file uploads
   await app.register(multipart, {
     limits: {
-      fileSize: 50 * 1024 * 1024, // 50MB
+      fileSize: cfg.MAX_FILE_SIZE,
       files: 10,
     },
   });
@@ -85,7 +84,7 @@ export async function registerPlugins(app: FastifyInstance): Promise<void> {
         },
       },
       servers: [
-        { url: cfg.app.apiUrl, description: 'Development server' },
+        { url: `http://localhost:${cfg.APP_PORT}`, description: 'Development server' },
       ],
       tags: [
         { name: 'auth', description: 'Authentication endpoints' },

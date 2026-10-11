@@ -17,7 +17,7 @@ model Tenant {
   secondaryColor String?  @default("#1e40af")
   accentColor   String?   @default("#06b6d4")
   fontFamily    String?   @default("system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif")
-  settings      Json?
+  settingsJson  Json?
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -33,6 +33,7 @@ model Tenant {
   webhooks      Webhook[]
   integrations  Integration[]
   auditLogs     AuditLog[]
+  settings      Setting[]
 
   @@index([slug])
   @@index([domain])
@@ -58,6 +59,8 @@ model User {
   createdTickets  Ticket[] @relation("CreatedTickets")
   messages      Message[]
   auditLogs     AuditLog[]
+  ticketComments TicketComment[]
+  assignedConversations Conversation[] @relation("AssignedConversations")
 
   @@unique([email, tenantId])
   @@index([tenantId])
@@ -87,6 +90,7 @@ model Contact {
   conversations Conversation[]
   messages      Message[]
   groupMembers  GroupMember[]
+  campaignMessages CampaignMessage[]
 
   @@unique([phone, tenantId])
   @@index([tenantId])
@@ -107,7 +111,7 @@ model Conversation {
 
   contact       Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
   tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  assignedTo    User?     @relation("AssignedTickets", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedTo    User?     @relation("AssignedConversations", fields: [assignedToId], references: [id], onDelete: SetNull)
   messages      Message[]
   tickets       Ticket[]
 
@@ -423,4 +427,93 @@ model Setting {
 
   @@unique([key, tenantId])
   @@index([tenantId])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+}
+
+model Template {
+  id          String       @id @default(cuid())
+  name        String
+  content     String
+  status      TemplateStatus @default(DRAFT)
+  category    String?
+  language    String       @default("pt-BR")
+  tenantId    String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campaigns   Campaign[]
+  messages    Message[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([category])
+}
+
+model CampaignLog {
+  id        String        @id @default(cuid())
+  campaignId String
+  contactId String
+  status    MessageStatus @default(SENT)
+  messageId String?
+  error     String?
+  sentAt    DateTime?
+  createdAt DateTime      @default(now())
+
+  campaign  Campaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contact   Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  message   Message?      @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  @@index([campaignId])
+  @@index([contactId])
+  @@index([status])
+}
+
+model AutomationExecution {
+  id             String             @id @default(cuid())
+  automationId   String
+  trigger        AutomationTrigger
+  triggerData    Json?
+  status         String             @default("RUNNING")
+  error          String?
+  startedAt      DateTime           @default(now())
+  completedAt    DateTime?
+
+  automation     Automation         @relation(fields: [automationId], references: [id], onDelete: Cascade)
+
+  @@index([automationId])
+  @@index([status])
+}
+
+enum TemplateStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
 }

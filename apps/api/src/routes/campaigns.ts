@@ -5,12 +5,6 @@ import { ERROR_CODES, CAMPAIGN_STATUS, WEBSOCKET_EVENTS } from '@zapti/shared/co
 import { PaginationQuerySchema, IdParamSchema, SearchQuerySchema } from '@zapti/shared/validation';
 import { broadcastToWebsocket } from '@zapti/shared/notification';
 
-declare module 'fastify' {
-  interface FastifyRequest {
-    tenant: any;
-    user: any;
-  }
-}
 
 export async function campaignRoutes(fastify: FastifyInstance): Promise<void> {
   // List campaigns

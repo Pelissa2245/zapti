@@ -2,6 +2,8 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { prisma } from '../services/prisma';
 import { config } from '@zapti/shared/config';
 import { ERROR_CODES } from '@zapti/shared/constants';
+import { JWTPayload, verifyToken } from '@zapti/shared/auth';
+import crypto from 'crypto';
 
 export function registerMiddleware(app: FastifyInstance): void {
   // Request ID
@@ -51,12 +53,22 @@ export function registerMiddleware(app: FastifyInstance): void {
       });
     }
 
-    request.tenant = tenant;
+    request.tenant = {
+      id: tenant.id,
+      name: tenant.name,
+      isActive: tenant.isActive,
+      slug: tenant.slug,
+      domain: tenant.domain,
+      logo: tenant.logo,
+      primaryColor: tenant.primaryColor,
+      secondaryColor: tenant.secondaryColor,
+      accentColor: tenant.accentColor,
+      fontFamily: tenant.fontFamily,
+    };
   });
 
-  // Authentication
+  // Authentication - handled by auth plugin
   app.decorateRequest('tenant', null);
-  app.decorateRequest('user', null);
 
   app.addHook('preHandler', async (request, reply) => {
     if (request.url.startsWith('/health') ||
@@ -71,9 +83,32 @@ export function registerMiddleware(app: FastifyInstance): void {
     }
 
     try {
-      const decoded = await request.jwtVerify<{ sub: string; tenantId: string }>();
+      const authHeader = request.headers.authorization;
 
-      if (decoded.tenantId !== request.tenant!.id) {
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return reply.status(401).send({
+          success: false,
+          error: {
+            code: ERROR_CODES.UNAUTHORIZED,
+            message: 'Authorization header required',
+          },
+        });
+      }
+
+      const token = authHeader.substring(7);
+      const payload = verifyToken(token);
+
+      if (!payload) {
+        return reply.status(401).send({
+          success: false,
+          error: {
+            code: ERROR_CODES.TOKEN_INVALID,
+            message: 'Invalid or expired token',
+          },
+        });
+      }
+
+      if (payload.tenantId !== request.tenant!.id) {
         return reply.status(403).send({
           success: false,
           error: {
@@ -84,11 +119,11 @@ export function registerMiddleware(app: FastifyInstance): void {
       }
 
       const user = await prisma.user.findUnique({
-        where: { id: decoded.sub },
+        where: { id: payload.sub },
         include: { tenant: true },
       });
 
-      if (!user || !user.isActive) {
+      if (!user || !user.isActive || !user.tenant.isActive) {
         return reply.status(401).send({
           success: false,
           error: {
@@ -98,7 +133,13 @@ export function registerMiddleware(app: FastifyInstance): void {
         });
       }
 
-      request.user = user;
+      // Attach user with only needed fields to match JWTPayload
+      request.user = {
+        sub: user.id,
+        email: user.email,
+        role: user.role,
+        tenantId: user.tenantId,
+      };
     } catch (error) {
       return reply.status(401).send({
         success: false,
@@ -159,13 +200,14 @@ export function registerMiddleware(app: FastifyInstance): void {
     }
 
     // Send error notification in production
-    if (config().app.nodeEnv === 'production') {
-      const { sendErrorNotification } = await import('@zapti/shared/email');
+    if (config().NODE_ENV === 'production') {
+      const { sendErrorNotification } = await import('@zapti/shared/notification');
+      const user = request.user as JWTPayload | undefined;
       await sendErrorNotification({
         error: error instanceof Error ? error : new Error(String(error)),
         context: { requestId: request.id, url: request.url, method: request.method },
         tenantId: request.tenant?.id,
-        userId: request.user?.id,
+        userId: user?.sub,
       });
     }
 
@@ -173,7 +215,7 @@ export function registerMiddleware(app: FastifyInstance): void {
       success: false,
       error: {
         code: ERROR_CODES.INTERNAL_ERROR,
-        message: config().app.nodeEnv === 'production'
+        message: config().NODE_ENV === 'production'
           ? 'An internal server error occurred'
           : error.message,
       },

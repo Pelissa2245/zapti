@@ -5,12 +5,6 @@ import { ERROR_CODES, CONTACT_STATUS, CONTACT_SOURCE } from '@zapti/shared/const
 import { PaginationQuerySchema, IdParamSchema, SearchQuerySchema } from '@zapti/shared/validation';
 import { broadcastToWebsocket } from '@zapti/shared/notification';
 
-declare module 'fastify' {
-  interface FastifyRequest {
-    tenant: any;
-    user: any;
-  }
-}
 
 export async function contactRoutes(fastify: FastifyInstance): Promise<void> {
   // List contacts

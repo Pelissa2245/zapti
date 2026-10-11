@@ -3,13 +3,8 @@ import { z } from 'zod';
 import { prisma } from '../services/prisma';
 import { ERROR_CODES, WEBHOOK_EVENTS } from '@zapti/shared/constants';
 import { broadcastToWebsocket } from '@zapti/shared/notification';
-
-declare module 'fastify' {
-  interface FastifyRequest {
-    tenant?: any;
-    user?: any;
-  }
-}
+import { processWhatsAppWebhook, processEvolutionWebhook } from '../services/whatsapp.js';
+import { testIntegration } from '../services/integration.js';
 
 // WhatsApp webhook verification (public - no auth required)
 export async function whatsappWebhookRoutes(fastify: FastifyInstance): Promise<void> {
@@ -22,7 +17,7 @@ export async function whatsappWebhookRoutes(fastify: FastifyInstance): Promise<v
         'hub.verify_token': z.string().optional(),
       }),
     },
-  }, async (request: FastifyRequest<{ Querystring: any }>, reply: FastifyReply) => {
+  }, async (request: FastifyRequest<{ Querystring: { 'hub.mode'?: string; 'hub.challenge'?: string; 'hub.verify_token'?: string } }>, reply: FastifyReply) => {
     const { 'hub.mode': mode, 'hub.challenge': challenge, 'hub.verify_token': verifyToken } = request.query;
 
     // In production, you'd verify against a configured verify token
@@ -52,38 +47,27 @@ export async function whatsappWebhookRoutes(fastify: FastifyInstance): Promise<v
                 phone_number_id: z.string().optional(),
               }).optional(),
               contacts: z.array(z.object({
-                profile: z.object({ name: z.string() }).optional(),
-                wa_id: z.string(),
+                profile: z.object({
+                  name: z.string().optional(),
+                }).optional(),
+                wa_id: z.string().optional(),
               })).optional(),
               messages: z.array(z.object({
-                id: z.string(),
-                from: z.string(),
-                timestamp: z.string(),
-                type: z.string(),
-                text: z.object({ body: z.string() }).optional(),
-                image: z.object({ id: z.string(), mime_type: z.string(), sha256: z.string(), caption: z.string().optional() }).optional(),
-                video: z.object({ id: z.string(), mime_type: z.string(), sha256: z.string(), caption: z.string().optional() }).optional(),
-                audio: z.object({ id: z.string(), mime_type: z.string(), sha256: z.string() }).optional(),
-                document: z.object({ id: z.string(), mime_type: z.string(), sha256: z.string(), filename: z.string().optional(), caption: z.string().optional() }).optional(),
-                location: z.object({ latitude: z.number(), longitude: z.number(), name: z.string().optional(), address: z.string().optional() }).optional(),
-                contacts: z.array(z.object({ name: z.object({ formatted_name: z.string() }), phones: z.array(z.object({ phone: z.string(), type: z.string() })) })).optional(),
-                interactive: z.object({
-                  type: z.string(),
-                  button_reply: z.object({ id: z.string(), title: z.string() }).optional(),
-                  list_reply: z.object({ id: z.string(), title: z.string(), description: z.string().optional() }).optional(),
+                from: z.string().optional(),
+                id: z.string().optional(),
+                timestamp: z.string().optional(),
+                type: z.string().optional(),
+                text: z.object({
+                  body: z.string().optional(),
                 }).optional(),
-                context: z.object({ from: z.string(), id: z.string() }).optional(),
               })).optional(),
               statuses: z.array(z.object({
-                id: z.string(),
-                status: z.enum(['sent', 'delivered', 'read', 'failed']),
-                timestamp: z.string(),
-                recipient_id: z.string(),
-                conversation: z.object({ id: z.string(), origin: z.object({ type: z.string() }) }).optional(),
-                pricing: z.object({ billable: z.boolean(), pricing_model: z.string(), category: z.string() }).optional(),
-                errors: z.array(z.object({ code: z.string(), title: z.string(), message: z.string(), error_data: z.object({ details: z.string() }).optional() })).optional(),
+                id: z.string().optional(),
+                status: z.string().optional(),
+                timestamp: z.string().optional(),
+                recipient_id: z.string().optional(),
               })).optional(),
-            }),
+            }).optional(),
             field: z.string(),
           })),
         })),
@@ -91,7 +75,6 @@ export async function whatsappWebhookRoutes(fastify: FastifyInstance): Promise<v
     },
   }, async (request: FastifyRequest<{ Body: any }>, reply: FastifyReply) => {
     // Process webhook asynchronously
-    const { processWhatsAppWebhook } = await import('../services/whatsapp');
     processWhatsAppWebhook(request.body, request).catch(console.error);
 
     // Always return 200 to acknowledge receipt
@@ -112,7 +95,7 @@ export async function evolutionWebhookRoutes(fastify: FastifyInstance): Promise<
         apikey: z.string().optional(),
       }),
     },
-  }, async (request: FastifyRequest<{ Body: any }>, reply: FastifyReply) => {
+  }, async (request: FastifyRequest<{ Body: { event: string; instance: string; data: any; date_time?: string; server_url?: string; apikey?: string } }>, reply: FastifyReply) => {
     const { event, instance, data } = request.body;
 
     // Find tenant by instance name
@@ -120,7 +103,7 @@ export async function evolutionWebhookRoutes(fastify: FastifyInstance): Promise<
       where: {
         type: 'EVOLUTION_API',
         config: { path: ['instanceName'], equals: instance },
-        status: 'CONNECTED',
+        status: 'ACTIVE',
       },
       include: { tenant: true },
     });
@@ -130,145 +113,105 @@ export async function evolutionWebhookRoutes(fastify: FastifyInstance): Promise<
     }
 
     // Process webhook asynchronously
-    const { processEvolutionWebhook } = await import('../services/whatsapp');
     processEvolutionWebhook(event, data, integration.tenant.id).catch(console.error);
 
     return reply.send({ success: true });
   });
 }
 
-// Generic webhook for external integrations (requires API key)
-export async function genericWebhookRoutes(fastify: FastifyInstance): Promise<void> {
-  fastify.post('/webhooks/:tenantId/:webhookId', {
+// Generic webhook routes (authenticated)
+export async function webhookRoutes(fastify: FastifyInstance): Promise<void> {
+  // List webhooks
+  fastify.get('/webhooks', async (request: FastifyRequest, reply: FastifyReply) => {
+    const tenant = (request as any).tenant;
+    const webhooks = await prisma.webhook.findMany({
+      where: { tenantId: tenant.id },
+      orderBy: { createdAt: 'desc' },
+    });
+    return reply.send(webhooks);
+  });
+
+  // Create webhook
+  fastify.post('/webhooks', {
     schema: {
-      params: z.object({
-        tenantId: z.string().cuid(),
-        webhookId: z.string().cuid(),
+      body: z.object({
+        name: z.string().min(1).max(100),
+        url: z.string().url(),
+        events: z.array(z.string()).min(1),
+        secret: z.string().optional(),
       }),
-      headers: z.object({
-        'x-webhook-secret': z.string().optional(),
-        'x-signature': z.string().optional(),
-      }).optional(),
-      body: z.any(),
     },
-  }, async (request: FastifyRequest<{ Params: { tenantId: string; webhookId: string }; Body: any }>, reply: FastifyReply) => {
-    const { tenantId, webhookId } = request.params;
+  }, async (request: FastifyRequest<{ Body: { name: string; url: string; events: string[]; secret?: string } }>, reply: FastifyReply) => {
+    const tenant = (request as any).tenant;
+    const { name, url, events, secret } = request.body;
+
+    const webhook = await prisma.webhook.create({
+      data: {
+        name,
+        url,
+        events,
+        secret,
+        tenantId: tenant.id,
+      },
+    });
+
+    return reply.status(201).send(webhook);
+  });
+
+  // Test webhook
+  fastify.post('/webhooks/:id/test', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+    const tenant = (request as any).tenant;
+    const { id } = request.params;
 
     const webhook = await prisma.webhook.findFirst({
-      where: { id: webhookId, integration: { tenantId } },
-      include: { integration: true },
+      where: { id, tenantId: tenant.id },
     });
 
     if (!webhook) {
       return reply.status(404).send({ success: false, message: 'Webhook not found' });
     }
 
-    if (!webhook.isActive) {
-      return reply.status(400).send({ success: false, message: 'Webhook is inactive' });
+    try {
+      await fetch(webhook.url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(webhook.secret ? { 'X-Webhook-Signature': webhook.secret } : {}),
+        },
+        body: JSON.stringify({
+          event: 'test',
+          data: { message: 'Test webhook from ZapTI' },
+          timestamp: new Date().toISOString(),
+        }),
+      });
+
+      return reply.send({ success: true, message: 'Test webhook sent successfully' });
+    } catch (error: any) {
+      return reply.status(500).send({ success: false, message: `Failed to send test webhook: ${error.message}` });
+    }
+  });
+
+  // Delete webhook
+  fastify.delete('/webhooks/:id', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+    const tenant = (request as any).tenant;
+    const { id } = request.params;
+
+    const webhook = await prisma.webhook.findFirst({
+      where: { id, tenantId: tenant.id },
+    });
+
+    if (!webhook) {
+      return reply.status(404).send({ success: false, message: 'Webhook not found' });
     }
 
-    // Verify secret if configured
-    if (webhook.secret) {
-      const providedSecret = request.headers['x-webhook-secret'] || request.headers['x-signature'];
-      if (providedSecret !== webhook.secret) {
-        return reply.status(401).send({ success: false, message: 'Invalid webhook secret' });
-      }
-    }
-
-    // Check if event is subscribed
-    // For generic webhooks, we'll accept all events
-
-    // Process webhook
-    const { processGenericWebhook } = await import('../services/integration');
-    processGenericWebhook(webhook, request.body).catch(console.error);
+    await prisma.webhook.delete({ where: { id } });
 
     return reply.send({ success: true });
   });
 }
 
-// Contact form / lead capture webhook (public)
-export async function leadCaptureRoutes(fastify: FastifyInstance): Promise<void> {
-  fastify.post('/webhooks/lead-capture', {
-    schema: {
-      body: z.object({
-        name: z.string().optional(),
-        phone: z.string().min(10),
-        email: z.string().email().optional(),
-        source: z.string().optional(),
-        customFields: z.record(z.unknown()).optional(),
-        utm: z.object({
-          source: z.string().optional(),
-          medium: z.string().optional(),
-          campaign: z.string().optional(),
-          term: z.string().optional(),
-          content: z.string().optional(),
-        }).optional(),
-      }),
-    },
-  }, async (request: FastifyRequest<{ Body: any }>, reply: FastifyReply) => {
-    const { name, phone, email, source, customFields, utm } = request.body;
-
-    // Find default WhatsApp integration for this request
-    // In production, you'd identify tenant by domain or API key
-    const integration = await prisma.integration.findFirst({
-      where: { type: 'EVOLUTION_API', isDefault: true, status: 'CONNECTED' },
-      include: { tenant: true },
-    });
-
-    if (!integration) {
-      return reply.status(503).send({ success: false, message: 'No active WhatsApp integration' });
-    }
-
-    const tenantId = integration.tenantId;
-
-    // Create or find contact
-    let contact = await prisma.contact.findFirst({
-      where: { tenantId, phone },
-    });
-
-    if (!contact) {
-      contact = await prisma.contact.create({
-        data: {
-          tenantId,
-          name,
-          phone,
-          email,
-          source: source || 'WEB_FORM',
-          customFields: { ...customFields, utm },
-        },
-      });
-    } else {
-      // Update contact with new info
-      contact = await prisma.contact.update({
-        where: { id: contact.id },
-        data: {
-          name: name || contact.name,
-          email: email || contact.email,
-          customFields: { ...contact.customFields, ...customFields, utm },
-        },
-      });
-    }
-
-    // Optionally create conversation
-    const { createConversation } = await import('../services/conversation');
-    const conversation = await createConversation(tenantId, contact.id, null, 'New lead from web form');
-
-    // Broadcast
-    broadcastToWebsocket(
-      (global as any).io,
-      'lead:captured',
-      { contact, conversation },
-      `tenant:${tenantId}`
-    );
-
-    return reply.send({ success: true, data: { contact, conversation } });
-  });
-}
-
-// Register all webhook routes
-export async function webhookRoutes(fastify: FastifyInstance): Promise<void> {
+export async function registerWebhookRoutes(fastify: FastifyInstance): Promise<void> {
   await whatsappWebhookRoutes(fastify);
   await evolutionWebhookRoutes(fastify);
-  await genericWebhookRoutes(fastify);
-  await leadCaptureRoutes(fastify);
+  await webhookRoutes(fastify);
 }

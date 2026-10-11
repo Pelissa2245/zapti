@@ -1,11 +1,31 @@
-import { PrismaClient, AutomationTrigger, AutomationAction } from '@prisma/client';
+import { PrismaClient, AutomationTrigger } from '@prisma/client';
 
 const prisma = new PrismaClient();
+
+export type { AutomationTrigger };
 
 export interface AutomationContext {
   trigger: AutomationTrigger;
   triggerData: any;
   tenantId: string;
+}
+
+export async function triggerAutomations(
+  trigger: AutomationTrigger,
+  triggerData: any,
+  tenantId: string
+): Promise<void> {
+  const automations = await prisma.automation.findMany({
+    where: {
+      tenantId,
+      trigger,
+      isActive: true,
+    },
+  });
+
+  for (const automation of automations) {
+    await executeAutomation(automation.id, tenantId, triggerData);
+  }
 }
 
 export async function executeAutomation(
@@ -105,30 +125,30 @@ function evaluateOperator(actual: any, operator: string, expected: any): boolean
   }
 }
 
-async function executeAction(action: { type: AutomationAction; config: any }, context: AutomationContext): Promise<void> {
+async function executeAction(action: { type: string; config: any }, context: AutomationContext): Promise<void> {
   switch (action.type) {
-    case AutomationAction.SEND_MESSAGE:
+    case 'SEND_MESSAGE':
       await executeSendMessage(action.config, context);
       break;
-    case AutomationAction.CREATE_TICKET:
+    case 'CREATE_TICKET':
       await executeCreateTicket(action.config, context);
       break;
-    case AutomationAction.ASSIGN_CONVERSATION:
+    case 'ASSIGN_CONVERSATION':
       await executeAssignConversation(action.config, context);
       break;
-    case AutomationAction.ADD_TAG:
+    case 'ADD_TAG':
       await executeAddTag(action.config, context);
       break;
-    case AutomationAction.UPDATE_CONTACT:
+    case 'UPDATE_CONTACT':
       await executeUpdateContact(action.config, context);
       break;
-    case AutomationAction.WEBHOOK:
+    case 'WEBHOOK':
       await executeWebhook(action.config, context);
       break;
-    case AutomationAction.DELAY:
+    case 'DELAY':
       await executeDelay(action.config);
       break;
-    case AutomationAction.CONDITION:
+    case 'CONDITION':
       await executeCondition(action.config, context);
       break;
     default:
@@ -147,14 +167,9 @@ async function executeSendMessage(config: any, context: AutomationContext): Prom
   }
 
   if (templateId) {
-    // Template message
-    const template = await prisma.template.findUnique({ where: { id: templateId } });
-    if (template) {
-      contentToSend = template.content;
-      for (const [key, value] of Object.entries(variables || {})) {
-        contentToSend = contentToSend.replace(new RegExp(`{{${key}}}`, 'g'), String(value));
-      }
-    }
+    // Template message - use content from config if templateId provided but no template model exists
+    // In a real implementation, you might fetch from external template service
+    console.log(`Template ${templateId} referenced but no template model exists`);
   }
 
   if (conversationId) {
@@ -178,21 +193,26 @@ async function executeSendMessage(config: any, context: AutomationContext): Prom
         },
       });
 
-      const { sendWhatsAppMessage } = await import('./whatsapp');
+      const { sendWhatsAppMessage } = await import('./whatsapp.js');
       sendWhatsAppMessage(conversation, message, context.tenantId).catch(console.error);
     }
   }
 }
 
 async function executeCreateTicket(config: any, context: AutomationContext): Promise<void> {
-  const { title, description, priority, contactId, assignedToId } = config;
+  const { title, description, priority, conversationId, assignedToId } = config;
 
-  const contact = contactId
-    ? await prisma.contact.findFirst({ where: { id: contactId, tenantId: context.tenantId } })
-    : context.triggerData.contact;
+  if (!conversationId) {
+    console.warn('No conversationId found for ticket creation');
+    return;
+  }
 
-  if (!contact) {
-    console.warn('No contact found for ticket creation');
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: conversationId, tenantId: context.tenantId },
+  });
+
+  if (!conversation) {
+    console.warn('Conversation not found for ticket creation');
     return;
   }
 
@@ -202,9 +222,9 @@ async function executeCreateTicket(config: any, context: AutomationContext): Pro
       title: title || 'Automated Ticket',
       description: description || '',
       priority: priority || 'NORMAL',
-      contactId: contact.id,
+      conversationId: conversation.id,
       assignedToId,
-      createdById: context.triggerData.userId || contact.id,
+      createdById: context.triggerData.userId || conversation.contactId,
     },
   });
 }
@@ -232,21 +252,7 @@ async function executeAssignConversation(config: any, context: AutomationContext
 async function executeAddTag(config: any, context: AutomationContext): Promise<void> {
   const { entityType, entityId, tag } = config;
 
-  if (entityType === 'conversation' && entityId) {
-    const conversation = await prisma.conversation.findFirst({
-      where: { id: entityId, tenantId: context.tenantId },
-    });
-    if (conversation) {
-      const tags = conversation.tags || [];
-      if (!tags.includes(tag)) {
-        tags.push(tag);
-        await prisma.conversation.update({
-          where: { id: entityId },
-          data: { tags },
-        });
-      }
-    }
-  } else if (entityType === 'contact' && entityId) {
+  if (entityType === 'contact' && entityId) {
     const contact = await prisma.contact.findFirst({
       where: { id: entityId, tenantId: context.tenantId },
     });

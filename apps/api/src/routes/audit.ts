@@ -1,19 +1,26 @@
-import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { FastifyInstance, FastifyRequest, FastifyReply, RouteGenericInterface } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../services/prisma';
 import { ERROR_CODES, USER_ROLES } from '@zapti/shared/constants';
 import { PaginationQuerySchema, IdParamSchema } from '@zapti/shared/validation';
+import { JWTPayload } from '@zapti/shared/auth';
 
-declare module 'fastify' {
-  interface FastifyRequest {
-    tenant: any;
-    user: any;
-  }
+interface AuditQueryParams {
+  page: number;
+  limit: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  userId?: string;
+  action?: string;
+  entityType?: string;
+  entityId?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 export async function auditRoutes(fastify: FastifyInstance): Promise<void> {
   // List audit logs
-  fastify.get('/', {
+  fastify.get<{ Querystring: AuditQueryParams }>('/', {
     preHandler: [fastify.authenticate],
     schema: {
       querystring: PaginationQuerySchema.extend({
@@ -25,8 +32,9 @@ export async function auditRoutes(fastify: FastifyInstance): Promise<void> {
         endDate: z.string().datetime().optional(),
       }),
     },
-  }, async (request: FastifyRequest<{ Querystring: any }>, reply: FastifyReply) => {
-    if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
+  }, async (request: FastifyRequest<{ Querystring: AuditQueryParams }>, reply: FastifyReply) => {
+    const user = request.user as JWTPayload;
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
       return reply.status(403).send({
         success: false,
         error: { code: ERROR_CODES.FORBIDDEN, message: 'Admin access required' },
@@ -68,7 +76,7 @@ export async function auditRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // Get audit log by ID
-  fastify.get('/:id', {
+  fastify.get<{ Params: { id: string } }>('/:id', {
     preHandler: [fastify.authenticate],
     schema: {
       params: IdParamSchema,
@@ -99,9 +107,9 @@ export async function auditRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // Get audit stats
-  fastify.get('/stats/overview', {
+  fastify.get<{ Querystring: { tenantId?: string } }>('/stats/overview', {
     preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
+  }, async (request: FastifyRequest<{ Querystring: { tenantId?: string } }>, reply: FastifyReply) => {
     if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
       return reply.status(403).send({
         success: false,
@@ -125,8 +133,8 @@ export async function auditRoutes(fastify: FastifyInstance): Promise<void> {
       success: true,
       data: {
         totalLogs,
-        byAction: byAction.reduce((acc, item) => ({ ...acc, [item.action]: item._count }), {}),
-        byEntity: byEntity.reduce((acc, item) => ({ ...acc, [item.entityType]: item._count }), {}),
+        byAction: byAction.reduce((acc: Record<string, number>, item: { action: string; _count: number }) => ({ ...acc, [item.action]: item._count }), {}),
+        byEntity: byEntity.reduce((acc: Record<string, number>, item: { entityType: string; _count: number }) => ({ ...acc, [item.entityType]: item._count }), {}),
         recentActivity,
       },
     });

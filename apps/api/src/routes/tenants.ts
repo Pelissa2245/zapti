@@ -6,12 +6,6 @@ import { ERROR_CODES, WEBSOCKET_EVENTS } from '@zapti/shared/constants';
 import { IdParamSchema } from '@zapti/shared/validation';
 import { broadcastToWebsocket } from '@zapti/shared/notification';
 
-declare module 'fastify' {
-  interface FastifyRequest {
-    tenant: any;
-    user: any;
-  }
-}
 
 export async function tenantRoutes(fastify: FastifyInstance): Promise<void> {
   // Get current tenant (own tenant)

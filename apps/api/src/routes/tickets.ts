@@ -5,12 +5,6 @@ import { ERROR_CODES, TICKET_STATUS, TICKET_PRIORITY, WEBSOCKET_EVENTS } from '@
 import { PaginationQuerySchema, IdParamSchema, SearchQuerySchema } from '@zapti/shared/validation';
 import { broadcastToWebsocket } from '@zapti/shared/notification';
 
-declare module 'fastify' {
-  interface FastifyRequest {
-    tenant: any;
-    user: any;
-  }
-}
 
 export async function ticketRoutes(fastify: FastifyInstance): Promise<void> {
   // List tickets

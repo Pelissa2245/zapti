@@ -9,10 +9,10 @@ const swaggerPlugin: FastifyPluginAsync = async (app) => {
       info: {
         title: 'ZapTI API',
         description: 'Multi-tenant WhatsApp Business API Platform',
-        version: cfg.appVersion,
+        version: cfg.APP_VERSION,
       },
       servers: [
-        { url: `http://localhost:${cfg.appPort}`, description: 'Development server' },
+        { url: `http://localhost:${cfg.APP_PORT}`, description: 'Development server' },
       ],
       components: {
         securitySchemes: {

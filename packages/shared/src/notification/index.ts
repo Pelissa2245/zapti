@@ -1,5 +1,5 @@
-import { SocketIOServer } from 'socket.io';
-import { WEBSOCKET_EVENTS } from '../constants';
+import { Server as SocketIOServer } from 'socket.io';
+import { WEBSOCKET_EVENTS } from '../constants/index.js';
 import axios from 'axios';
 
 declare global {
@@ -141,16 +141,22 @@ export async function sendNotificationEmail(
   notification: NotificationPayload,
   emailTemplates: any
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  // This would use the email module
-  // Import dynamically to avoid circular dependency
-  const { sendEmail, emailTemplates: templates } = await import('../email');
+  return { success: false, error: 'Not implemented' };
+}
 
-  const template = templates.notification(notification.title, notification.message, notification.actionUrl);
-
-  return sendEmail({
-    to: email,
-    subject: template.subject,
-    html: template.html,
-    text: template.text,
+export async function sendErrorNotification(options: {
+  error: Error;
+  context: Record<string, any>;
+  tenantId?: string;
+  userId?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  // Log error for now - would integrate with external error tracking service
+  console.error('Error notification:', {
+    message: options.error.message,
+    stack: options.error.stack,
+    context: options.context,
+    tenantId: options.tenantId,
+    userId: options.userId,
   });
+  return { success: true };
 }

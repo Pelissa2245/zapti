@@ -93,6 +93,13 @@ enum IntegrationType {
   WEBHOOK
 }
 
+enum TemplateStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+}
+
 model Tenant {
   id              String    @id @default(cuid())
   name            String
@@ -103,7 +110,6 @@ model Tenant {
   secondaryColor  String    @default("#1e40af")
   accentColor     String    @default("#06b6d4")
   fontFamily      String?   @default("Inter")
-  settings        Json?
   isActive        Boolean   @default(true)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -120,6 +126,7 @@ model Tenant {
   integrations    Integration[]
   settings        Setting[]
   auditLogs       AuditLog[]
+  templates       Template[]
 
   @@index([slug])
   @@index([domain])
@@ -138,9 +145,6 @@ model User {
   twoFactorEnabled  Boolean    @default(false)
   twoFactorSecret   String?
   backupCodes       String[]
-  refreshToken      String?
-  resetToken        String?
-  resetTokenExpiry  DateTime?
   tenantId          String
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
@@ -152,6 +156,8 @@ model User {
   assignedTickets   Ticket[]   @relation("AssignedTickets")
   ticketComments    TicketComment[]
   auditLogs         AuditLog[]
+  refreshTokens     RefreshToken[]
+  passwordResets    PasswordReset[]
 
   @@unique([email, tenantId])
   @@index([tenantId])
@@ -175,6 +181,8 @@ model Contact {
   conversations Conversation[]
   messages      Message[]
   groupMembers  GroupMember[]
+  campaignMessages CampaignMessage[]
+  campaignLogs    CampaignLog[]
 
   @@unique([phone, tenantId])
   @@index([tenantId])
@@ -220,6 +228,8 @@ model Message {
   direction     MessageDirection
   status        MessageStatus  @default(SENT)
   externalId    String?
+  templateId    String?
+  template      Template?      @relation(fields: [templateId], references: [id], onDelete: SetNull)
   metadata      Json?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
@@ -228,6 +238,7 @@ model Message {
   contact       Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
   tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user          User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  campaignLogs  CampaignLog[]
 
   @@index([tenantId])
   @@index([conversationId])
@@ -295,6 +306,7 @@ model Group {
 
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   members     GroupMember[]
+  campaigns   Campaign[]
 
   @@index([tenantId])
   @@index([isActive])
@@ -320,19 +332,25 @@ model Campaign {
   name            String
   description     String?
   templateId      String?
+  groupId         String?
   tenantId        String
   status          CampaignStatus   @default(DRAFT)
   scheduledAt     DateTime?
   sentAt          DateTime?
   completedAt     DateTime?
   totalRecipients Int              @default(0)
+  totalContacts   Int              @default(0)
   sentCount       Int              @default(0)
   failedCount     Int              @default(0)
+  variables       Json?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
   tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  group           Group?           @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  template        Template?        @relation(fields: [templateId], references: [id], onDelete: SetNull)
   messages        CampaignMessage[]
+  logs            CampaignLog[]
 
   @@index([tenantId])
   @@index([status])
@@ -357,6 +375,25 @@ model CampaignMessage {
   @@index([status])
 }
 
+model CampaignLog {
+  id        String           @id @default(cuid())
+  campaignId String
+  contactId String
+  status    MessageStatus    @default(SENT)
+  messageId String?
+  error     String?
+  sentAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  campaign  Campaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contact   Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  message   Message?         @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  @@index([campaignId])
+  @@index([contactId])
+  @@index([status])
+}
+
 model Automation {
   id          String              @id @default(cuid())
   name        String
@@ -370,10 +407,27 @@ model Automation {
   updatedAt   DateTime            @updatedAt
 
   tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  executions  AutomationExecution[]
 
   @@index([tenantId])
   @@index([trigger])
   @@index([isActive])
+}
+
+model AutomationExecution {
+  id          String             @id @default(cuid())
+  automationId String
+  trigger     AutomationTrigger
+  triggerData Json?
+  status      String             @default("RUNNING")
+  error       String?
+  startedAt   DateTime           @default(now())
+  completedAt DateTime?
+
+  automation  Automation         @relation(fields: [automationId], references: [id], onDelete: Cascade)
+
+  @@index([automationId])
+  @@index([status])
 }
 
 model Webhook {
@@ -393,11 +447,19 @@ model Webhook {
   @@index([isActive])
 }
 
+enum IntegrationStatus {
+  ACTIVE
+  INACTIVE
+  ERROR
+  PENDING
+}
+
 model Integration {
   id        String           @id @default(cuid())
   type      IntegrationType
   name      String
   config    Json
+  status    IntegrationStatus @default(PENDING)
   isActive  Boolean          @default(true)
   tenantId  String
   createdAt DateTime         @default(now())
@@ -446,4 +508,51 @@ model AuditLog {
   @@index([entityId])
   @@index([userId])
   @@index([createdAt])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+}
+
+model Template {
+  id          String       @id @default(cuid())
+  name        String
+  content     String
+  status      TemplateStatus @default(DRAFT)
+  category    String?
+  language    String       @default("pt-BR")
+  tenantId    String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campaigns   Campaign[]
+  messages    Message[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([category])
 }

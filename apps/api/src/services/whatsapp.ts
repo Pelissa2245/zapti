@@ -363,3 +363,57 @@ export async function markMessageFailedByExternalId(externalId: string, tenantId
     },
   });
 }
+
+export async function processWhatsAppWebhook(body: any, request: any): Promise<void> {
+  console.log('Processing WhatsApp webhook:', JSON.stringify(body, null, 2));
+  // TODO: Implement WhatsApp Business API webhook processing
+}
+
+export async function processEvolutionWebhook(event: string, data: any, tenantId: string): Promise<void> {
+  console.log(`Processing Evolution API webhook: ${event}`, JSON.stringify(data, null, 2));
+
+  try {
+    switch (event) {
+      case 'messages.upsert':
+        await processEvolutionMessageUpsert(data, tenantId);
+        break;
+      case 'messages.update':
+        await processEvolutionMessageUpdate(data, tenantId);
+        break;
+      case 'connection.update':
+        await processEvolutionConnectionUpdate(data, tenantId);
+        break;
+      case 'qrcode.updated':
+        // QR code updated - could notify frontend
+        console.log('QR code updated for tenant:', tenantId);
+        break;
+      default:
+        console.log('Unhandled Evolution event:', event);
+    }
+  } catch (error: any) {
+    console.error('Error processing Evolution webhook:', error);
+  }
+}
+
+async function processEvolutionMessageUpsert(data: any, tenantId: string): Promise<void> {
+  const { messages } = data;
+  for (const msg of messages) {
+    // Find or create conversation
+    // Find or create contact
+    // Create message record
+    console.log('Processing message upsert:', msg.key?.id);
+  }
+}
+
+async function processEvolutionMessageUpdate(data: any, tenantId: string): Promise<void> {
+  const { messages } = data;
+  for (const msg of messages) {
+    // Update message status (delivered, read, etc.)
+    console.log('Processing message update:', msg.key?.id, 'status:', msg.status);
+  }
+}
+
+async function processEvolutionConnectionUpdate(data: any, tenantId: string): Promise<void> {
+  // Update integration status based on connection state
+  console.log('Connection update:', data.state);
+}

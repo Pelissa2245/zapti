@@ -1,18 +1,31 @@
-import { FastifyPluginAsync } from 'fastify';
+import { FastifyPluginAsync, FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { verifyToken, JWTPayload } from '@zapti/shared/auth';
 import { config } from '@zapti/shared/config';
 
+// Declare module augmentation for Fastify
 declare module 'fastify' {
   interface FastifyRequest {
     user?: JWTPayload;
+    tenant?: {
+      id: string;
+      name: string;
+      isActive: boolean;
+      slug: string;
+      domain: string | null;
+      logo: string | null;
+      primaryColor: string;
+      secondaryColor: string;
+      accentColor: string;
+      fontFamily: string | null;
+    };
   }
 }
 
-const authPlugin: FastifyPluginAsync = async (app) => {
+export const authPlugin: FastifyPluginAsync = async (app) => {
   const cfg = config();
 
   // JWT verification
-  app.decorate('authenticate', async (request, reply) => {
+  app.decorate('authenticate', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const authHeader = request.headers.authorization;
 
@@ -34,7 +47,7 @@ const authPlugin: FastifyPluginAsync = async (app) => {
       }
 
       // Verify user still exists and is active
-      const { prisma } = await import('../services/prisma');
+      const { prisma } = await import('../services/prisma.js');
       const user = await prisma.user.findUnique({
         where: { id: payload.sub },
         include: { tenant: true },
@@ -48,6 +61,18 @@ const authPlugin: FastifyPluginAsync = async (app) => {
       }
 
       request.user = payload;
+      request.tenant = {
+        id: user.tenant.id,
+        name: user.tenant.name,
+        isActive: user.tenant.isActive,
+        slug: user.tenant.slug,
+        domain: user.tenant.domain,
+        logo: user.tenant.logo,
+        primaryColor: user.tenant.primaryColor,
+        secondaryColor: user.tenant.secondaryColor,
+        accentColor: user.tenant.accentColor,
+        fontFamily: user.tenant.fontFamily,
+      };
     } catch (error) {
       return reply.status(401).send({
         success: false,
@@ -57,7 +82,7 @@ const authPlugin: FastifyPluginAsync = async (app) => {
   });
 
   // Optional authentication (doesn't fail if no token)
-  app.decorate('optionalAuth', async (request, reply) => {
+  app.decorate('optionalAuth', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const authHeader = request.headers.authorization;
 
@@ -66,7 +91,7 @@ const authPlugin: FastifyPluginAsync = async (app) => {
         const payload = verifyToken(token);
 
         if (payload) {
-          const { prisma } = await import('../services/prisma');
+          const { prisma } = await import('../services/prisma.js');
           const user = await prisma.user.findUnique({
             where: { id: payload.sub },
             include: { tenant: true },
@@ -74,6 +99,18 @@ const authPlugin: FastifyPluginAsync = async (app) => {
 
           if (user && user.isActive && user.tenant.isActive) {
             request.user = payload;
+            request.tenant = {
+              id: user.tenant.id,
+              name: user.tenant.name,
+              isActive: user.tenant.isActive,
+              slug: user.tenant.slug,
+              domain: user.tenant.domain,
+              logo: user.tenant.logo,
+              primaryColor: user.tenant.primaryColor,
+              secondaryColor: user.tenant.secondaryColor,
+              accentColor: user.tenant.accentColor,
+              fontFamily: user.tenant.fontFamily,
+            };
           }
         }
       }

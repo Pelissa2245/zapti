@@ -1,5 +1,5 @@
 import { config } from '@zapti/shared/config';
-import { testEvolutionConnection, getEvolutionQRCode } from './whatsapp';
+import { testEvolutionConnection, getEvolutionQRCode } from './whatsapp.js';
 
 /**
  * Test integration connection

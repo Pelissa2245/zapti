@@ -6,7 +6,7 @@ const multipartPlugin: FastifyPluginAsync = async (app) => {
 
   await app.register(require('@fastify/multipart'), {
     limits: {
-      fileSize: cfg.maxFileSize || 10 * 1024 * 1024, // 10MB default
+      fileSize: cfg.MAX_FILE_SIZE || 10 * 1024 * 1024, // 10MB default
       files: 5,
     },
     attachFieldsToBody: true,

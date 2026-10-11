@@ -17,7 +17,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@zapti/shared/*": ["../../packages/shared/src/*"]
+      "@zapti/shared/*": ["../../packages/shared/dist/*"]
     },
     "types": ["node", "fastify"]
   },

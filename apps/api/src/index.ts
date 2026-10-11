@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import Fastify from 'fastify';
+import Fastify, { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
@@ -10,6 +10,7 @@ import staticPlugin from '@fastify/static';
 import { config } from '@zapti/shared/config';
 import { setupWebSocket } from './services/websocket';
 import { prisma } from './services/prisma';
+import { authPlugin } from './plugins/auth';
 
 // Import routes
 import { healthRoutes } from './routes/health';
@@ -27,13 +28,13 @@ import { integrationRoutes } from './routes/integrations';
 import { settingRoutes } from './routes/settings';
 import { auditRoutes } from './routes/audit';
 
-async function buildApp(): Promise<Fastify.FastifyInstance> {
+async function buildApp(): Promise<FastifyInstance> {
   const cfg = config();
 
   const app = Fastify({
     logger: {
-      level: cfg.app.nodeEnv === 'production' ? 'info' : 'debug',
-      transport: cfg.app.nodeEnv !== 'production' ? {
+      level: cfg.NODE_ENV === 'production' ? 'info' : 'debug',
+      transport: cfg.NODE_ENV !== 'production' ? {
         target: 'pino-pretty',
         options: { colorize: true },
       } : undefined,
@@ -46,20 +47,23 @@ async function buildApp(): Promise<Fastify.FastifyInstance> {
   });
 
   await app.register(cors, {
-    origin: cfg.app.corsOrigin,
+    origin: cfg.CORS_ORIGIN,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
   await app.register(rateLimit, {
-    max: cfg.rateLimit.max,
-    timeWindow: cfg.rateLimit.windowMs,
+    max: cfg.RATE_LIMIT_MAX,
+    timeWindow: cfg.RATE_LIMIT_WINDOW_MS,
   });
 
   await app.register(jwt, {
-    secret: cfg.jwt.secret,
-    sign: { expiresIn: cfg.jwt.accessExpiry },
+    secret: cfg.JWT_SECRET,
+    sign: { expiresIn: cfg.JWT_ACCESS_EXPIRY },
   });
+
+  // Register auth plugin
+  await app.register(authPlugin);
 
   // Swagger documentation
   await app.register(swagger, {
@@ -67,7 +71,7 @@ async function buildApp(): Promise<Fastify.FastifyInstance> {
       info: {
         title: 'ZapTI API',
         description: 'API for ZapTI - WhatsApp Business Management Platform',
-        version: cfg.app.version,
+        version: cfg.APP_VERSION,
       },
       components: {
         securitySchemes: {
@@ -91,7 +95,7 @@ async function buildApp(): Promise<Fastify.FastifyInstance> {
 
   // Static files
   await app.register(staticPlugin, {
-    root: cfg.fileUpload.uploadDir,
+    root: cfg.UPLOAD_DIR,
     prefix: '/uploads/',
   });
 
@@ -99,7 +103,7 @@ async function buildApp(): Promise<Fastify.FastifyInstance> {
   setupWebSocket(app);
 
   // Authentication decorator
-  app.decorate('authenticate', async (request: Fastify.FastifyRequest, reply: Fastify.FastifyReply) => {
+  app.decorate('authenticate', async (request: any, reply: any) => {
     try {
       const token = request.headers.authorization?.replace('Bearer ', '');
       if (!token) {
@@ -222,8 +226,8 @@ async function buildApp(): Promise<Fastify.FastifyInstance> {
   app.get('/', async (request, reply) => {
     return reply.send({
       success: true,
-      name: cfg.app.name,
-      version: cfg.app.version,
+      name: cfg.APP_NAME,
+      version: cfg.APP_VERSION,
       docs: '/docs',
       health: '/health',
     });
@@ -237,11 +241,11 @@ async function start(): Promise<void> {
     const cfg = config();
     const app = await buildApp();
 
-    await app.listen({ port: cfg.app.port, host: '0.0.0.0' });
+    await app.listen({ port: cfg.APP_PORT, host: '0.0.0.0' });
 
-    console.log(`🚀 ${cfg.app.name} API running on port ${cfg.app.port}`);
-    console.log(`📚 Documentation: http://localhost:${cfg.app.port}/docs`);
-    console.log(`💚 Health check: http://localhost:${cfg.app.port}/health`);
+    console.log(`🚀 ${cfg.APP_NAME} API running on port ${cfg.APP_PORT}`);
+    console.log(`📚 Documentation: http://localhost:${cfg.APP_PORT}/docs`);
+    console.log(`💚 Health check: http://localhost:${cfg.APP_PORT}/health`);
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);

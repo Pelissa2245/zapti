@@ -3,13 +3,8 @@ import { z } from 'zod';
 import { prisma } from '../services/prisma';
 import { ERROR_CODES } from '@zapti/shared/constants';
 import { PaginationQuerySchema, IdParamSchema, SearchQuerySchema } from '@zapti/shared/validation';
-
-declare module 'fastify' {
-  interface FastifyRequest {
-    tenant: any;
-    user: any;
-  }
-}
+import { verifyPassword, hashPassword } from '@zapti/shared/auth';
+import { JWTPayload } from '@zapti/shared/auth';
 
 export async function userRoutes(fastify: FastifyInstance): Promise<void> {
   // List users (admin only)
@@ -22,6 +17,12 @@ export async function userRoutes(fastify: FastifyInstance): Promise<void> {
       }),
     },
   }, async (request: FastifyRequest<{ Querystring: any }>, reply: FastifyReply) => {
+    if (!request.user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' },
+      });
+    }
     if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
       return reply.status(403).send({
         success: false,
@@ -124,7 +125,13 @@ export async function userRoutes(fastify: FastifyInstance): Promise<void> {
         isActive: z.boolean().optional(),
       }),
     },
-  }, async (request: FastifyRequest<{ Body: any }>, reply: FastifyReply) => {
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!request.user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' },
+      });
+    }
     if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
       return reply.status(403).send({
         success: false,
@@ -132,7 +139,8 @@ export async function userRoutes(fastify: FastifyInstance): Promise<void> {
       });
     }
 
-    const { email, name, password, role, isActive } = request.body;
+    const body = request.body as { email: string; name: string; password: string; role: 'AGENT' | 'SUPERVISOR'; isActive?: boolean };
+    const { email, name, password, role, isActive } = body;
 
     // Check if user already exists
     const existingUser = await prisma.user.findFirst({
@@ -198,7 +206,14 @@ export async function userRoutes(fastify: FastifyInstance): Promise<void> {
         newPassword: z.string().min(8).optional(),
       }),
     },
-  }, async (request: FastifyRequest<{ Params: { id: string }; Body: any }>, reply: FastifyReply) => {
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!request.user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' },
+      });
+    }
+    const body = request.body as { name?: string; avatar?: string; role?: 'ADMIN' | 'AGENT' | 'SUPERVISOR'; isActive?: boolean; currentPassword?: string; newPassword?: string };
     const isSelf = request.user.sub === request.params.id;
     const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(request.user.role);
 
@@ -222,34 +237,34 @@ export async function userRoutes(fastify: FastifyInstance): Promise<void> {
 
     // Non-admins can only update limited fields
     const allowedFields = isAdmin
-      ? ['name', 'avatar', 'role', 'isActive']
-      : ['name', 'avatar'];
+      ? ['name', 'avatar', 'role', 'isActive'] as const
+      : ['name', 'avatar'] as const;
 
-    const updateData: any = {};
+    const updateData: Record<string, any> = {};
     for (const field of allowedFields) {
-      if (request.body[field] !== undefined) {
-        updateData[field] = request.body[field];
+      const value = body[field];
+      if (value !== undefined) {
+        updateData[field] = value;
       }
     }
 
     // Password change
-    if (request.body.newPassword) {
-      if (!request.body.currentPassword) {
+    if (body.newPassword) {
+      if (!body.currentPassword) {
         return reply.status(400).send({
           success: false,
           error: { code: ERROR_CODES.INVALID_INPUT, message: 'Current password required' },
         });
       }
 
-      const { verifyPassword, hashPassword } = await import('@zapti/shared/auth');
-      if (!await verifyPassword(request.body.currentPassword, user.password)) {
+      if (!await verifyPassword(body.currentPassword, user.passwordHash)) {
         return reply.status(401).send({
           success: false,
           error: { code: ERROR_CODES.INVALID_CREDENTIALS, message: 'Current password is incorrect' },
         });
       }
 
-      updateData.password = await hashPassword(request.body.newPassword);
+      updateData.passwordHash = await hashPassword(body.newPassword);
     }
 
     const updatedUser = await prisma.user.update({
@@ -289,6 +304,12 @@ export async function userRoutes(fastify: FastifyInstance): Promise<void> {
       params: IdParamSchema,
     },
   }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+    if (!request.user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' },
+      });
+    }
     if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
       return reply.status(403).send({
         success: false,
@@ -337,7 +358,10 @@ export async function userRoutes(fastify: FastifyInstance): Promise<void> {
     });
 
     // Invalidate refresh tokens
-    await prisma.refreshToken.deleteMany({ where: { userId: user.id } });
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { refreshToken: null },
+    });
 
     // Audit log
     await prisma.auditLog.create({
@@ -357,6 +381,12 @@ export async function userRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/stats/overview', {
     preHandler: [fastify.authenticate],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!request.user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' },
+      });
+    }
     if (!['ADMIN', 'SUPER_ADMIN', 'SUPERVISOR'].includes(request.user.role)) {
       return reply.status(403).send({
         success: false,

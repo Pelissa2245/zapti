@@ -1,20 +1,23 @@
 // Config
-export * from './config';
+export * from './config/index.js';
 
 // Auth
-export * from './auth';
+export * from './auth/index.js';
+
+// Types
+export * from './types/index.js';
 
 // Validation
-export * from './validation';
+export * from './validation/index.js';
 
 // Constants
-export * from './constants';
+export * from './constants/index.js';
 
 // Email
-export * from './email';
+export * from './email/index.js';
 
 // Notification
-export * from './notification';
+export * from './notification/index.js';
 
 // Utils
-export * from './utils';
+export * from './utils/index.js';

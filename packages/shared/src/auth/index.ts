@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { config } from './config';
+import { config } from '../config/index.js';
 
 export interface JWTPayload {
   sub: string;
@@ -21,18 +21,18 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 
 export function generateAccessToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): string {
   const cfg = config();
-  return jwt.sign(payload, cfg.jwt.secret, { expiresIn: cfg.jwt.accessExpiry });
+  return jwt.sign(payload, cfg.JWT_SECRET, { expiresIn: cfg.JWT_ACCESS_EXPIRY as any });
 }
 
 export function generateRefreshToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): string {
   const cfg = config();
-  return jwt.sign({ ...payload, type: 'refresh' }, cfg.jwt.secret, { expiresIn: cfg.jwt.refreshExpiry });
+  return jwt.sign({ ...payload, type: 'refresh' }, cfg.JWT_SECRET, { expiresIn: cfg.JWT_REFRESH_EXPIRY as any });
 }
 
 export function verifyToken(token: string): JWTPayload | null {
   try {
     const cfg = config();
-    return jwt.verify(token, cfg.jwt.secret) as JWTPayload;
+    return jwt.verify(token, cfg.JWT_SECRET) as JWTPayload;
   } catch {
     return null;
   }

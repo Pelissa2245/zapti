@@ -1,8 +1,8 @@
-import Fastify from 'fastify';
+import Fastify, { FastifyInstance } from 'fastify';
 import fp from 'fastify-plugin';
 import { config } from '@zapti/shared/config';
 import { setupWebSocket } from './services/websocket';
-import { triggerAutomations } from './services/automation';
+import { triggerAutomations, AutomationTrigger } from './services/automation';
 
 // Plugins
 import corsPlugin from './plugins/cors';
@@ -14,21 +14,21 @@ import authPlugin from './plugins/auth';
 import tenantPlugin from './plugins/tenant';
 
 // Routes
-import healthRoutes from './routes/health';
-import authRoutes from './routes/auth';
-import userRoutes from './routes/users';
-import tenantRoutes from './routes/tenants';
-import contactRoutes from './routes/contacts';
-import conversationRoutes from './routes/conversations';
-import messageRoutes from './routes/messages';
-import ticketRoutes from './routes/tickets';
-import groupRoutes from './routes/groups';
-import campaignRoutes from './routes/campaigns';
-import automationRoutes from './routes/automations';
-import integrationRoutes from './routes/integrations';
-import settingRoutes from './routes/settings';
-import auditRoutes from './routes/audit';
-import webhookRoutes from './routes/webhooks';
+import { healthRoutes } from './routes/health';
+import { authRoutes } from './routes/auth';
+import { userRoutes } from './routes/users';
+import { tenantRoutes } from './routes/tenants';
+import { contactRoutes } from './routes/contacts';
+import { conversationRoutes } from './routes/conversations';
+import { messageRoutes } from './routes/messages';
+import { ticketRoutes } from './routes/tickets';
+import { groupRoutes } from './routes/groups';
+import { campaignRoutes } from './routes/campaigns';
+import { automationRoutes } from './routes/automations';
+import { integrationRoutes } from './routes/integrations';
+import { settingRoutes } from './routes/settings';
+import { auditRoutes } from './routes/audit';
+import { webhookRoutes } from './routes/webhooks';
 
 // Error handler
 import { errorHandler } from './middleware/errorHandler';
@@ -37,7 +37,7 @@ async function buildApp(): Promise<FastifyInstance> {
   const cfg = config();
 
   const app = Fastify({
-    logger: cfg.nodeEnv === 'development' ? {
+    logger: cfg.NODE_ENV === 'development' ? {
       transport: {
         target: 'pino-pretty',
         options: { colorize: true, translateTime: 'HH:MM:ss Z', ignore: 'pid,hostname' },
@@ -77,7 +77,7 @@ async function buildApp(): Promise<FastifyInstance> {
   await app.register(webhookRoutes, { prefix: '/webhooks' });
 
   // Global hook to trigger automations on events
-  app.addHook('onResponse', async (request, reply) => {
+  app.addHook('onSend', async (request, reply, payload) => {
     // Trigger automations based on route patterns
     const { url, method } = request;
 
@@ -85,11 +85,18 @@ async function buildApp(): Promise<FastifyInstance> {
     const tenantId = request.tenant?.id;
     if (!tenantId) return;
 
+    // Parse response body
+    let body: any;
+    try {
+      body = typeof payload === 'string' ? JSON.parse(payload) : payload;
+    } catch {
+      return payload;
+    }
+
     // Conversation created
     if (method === 'POST' && url === '/conversations' && reply.statusCode === 201) {
-      const body = reply.body as any;
       if (body?.data?.id) {
-        await triggerAutomations('CONVERSATION_CREATED', {
+        await triggerAutomations('NEW_CONVERSATION' as AutomationTrigger, {
           conversationId: body.data.id,
           contactId: body.data.contactId,
           tenantId,
@@ -99,9 +106,8 @@ async function buildApp(): Promise<FastifyInstance> {
 
     // Message received (inbound)
     if (method === 'POST' && url === '/messages' && reply.statusCode === 201) {
-      const body = reply.body as any;
       if (body?.data?.direction === 'INBOUND') {
-        await triggerAutomations('MESSAGE_RECEIVED', {
+        await triggerAutomations('NEW_MESSAGE' as AutomationTrigger, {
           conversationId: body.data.conversationId,
           contactId: body.data.contactId,
           messageId: body.data.id,
@@ -113,9 +119,8 @@ async function buildApp(): Promise<FastifyInstance> {
 
     // Ticket created
     if (method === 'POST' && url === '/tickets' && reply.statusCode === 201) {
-      const body = reply.body as any;
       if (body?.data?.id) {
-        await triggerAutomations('TICKET_CREATED', {
+        await triggerAutomations('TICKET_CREATED' as AutomationTrigger, {
           ticketId: body.data.id,
           conversationId: body.data.conversationId,
           contactId: body.data.contactId,
@@ -126,14 +131,15 @@ async function buildApp(): Promise<FastifyInstance> {
 
     // Contact created
     if (method === 'POST' && url === '/contacts' && reply.statusCode === 201) {
-      const body = reply.body as any;
       if (body?.data?.id) {
-        await triggerAutomations('CONTACT_CREATED', {
+        await triggerAutomations('CONTACT_TAG_ADDED' as AutomationTrigger, {
           contactId: body.data.id,
           tenantId,
         }, tenantId);
       }
     }
+
+    return payload;
   });
 
   // Setup WebSocket
@@ -141,8 +147,8 @@ async function buildApp(): Promise<FastifyInstance> {
 
   // Ready hook
   app.ready(() => {
-    console.log(`Server ready on port ${cfg.appPort}`);
-    console.log(`Environment: ${cfg.nodeEnv}`);
+    console.log(`Server ready on port ${cfg.APP_PORT}`);
+    console.log(`Environment: ${cfg.NODE_ENV}`);
     console.log(`WebSocket enabled: true`);
   });
 
@@ -155,10 +161,10 @@ async function start(): Promise<void> {
     const app = await buildApp();
     const cfg = config();
 
-    await app.listen({ port: cfg.appPort, host: '0.0.0.0' });
+    await app.listen({ port: cfg.APP_PORT, host: '0.0.0.0' });
 
-    console.log(`🚀 ZapTI API running on http://localhost:${cfg.appPort}`);
-    console.log(`📚 Swagger docs: http://localhost:${cfg.appPort}/docs`);
+    console.log(`🚀 ZapTI API running on http://localhost:${cfg.APP_PORT}`);
+    console.log(`📚 Swagger docs: http://localhost:${cfg.APP_PORT}/docs`);
   } catch (err) {
     console.error('Failed to start server:', err);
     process.exit(1);

@@ -3,14 +3,28 @@ import { z } from 'zod';
 import { prisma } from '../services/prisma';
 import { config } from '@zapti/shared/config';
 import { ERROR_CODES } from '@zapti/shared/constants';
-import { hashPassword, verifyPassword, generateTokens, hashToken, verifyTokenHash, generateInvitationToken } from '@zapti/shared/auth';
+import { hashPassword, verifyPassword, generateAccessToken, generateRefreshToken, verifyToken, extractTokenFromHeader, JWTPayload } from '@zapti/shared/auth';
+import crypto from 'crypto';
 
-declare module 'fastify' {
-  interface FastifyRequest {
-    tenant?: any;
-    user?: any;
-  }
+function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
 }
+
+function generateTokens(payload: Omit<JWTPayload, 'iat' | 'exp'>) {
+  return {
+    accessToken: generateAccessToken(payload),
+    refreshToken: generateRefreshToken(payload),
+  };
+}
+
+function generateInvitationToken(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+async function verifyTokenHash(token: string, hash: string): Promise<boolean> {
+  return hashToken(token) === hash;
+}
+
 
 export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   // Login

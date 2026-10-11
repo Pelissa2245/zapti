@@ -5,14 +5,14 @@ const rateLimitPlugin: FastifyPluginAsync = async (app) => {
   const cfg = config();
 
   app.register(require('@fastify/rate-limit'), {
-    max: cfg.rateLimitMax || 100,
-    timeWindow: cfg.rateLimitWindow || '1 minute',
+    max: cfg.RATE_LIMIT_MAX || 100,
+    timeWindow: cfg.RATE_LIMIT_WINDOW_MS || '1 minute',
     allowList: ['127.0.0.1', '::1'],
-    keyGenerator: (request) => {
+    keyGenerator: (request: any) => {
       // Use user ID if authenticated, otherwise IP
-      return (request as any).user?.sub || request.ip;
+      return request.user?.sub || request.ip;
     },
-    errorResponseBuilder: (request, context) => {
+    errorResponseBuilder: (request: any, context: any) => {
       return {
         success: false,
         error: {
