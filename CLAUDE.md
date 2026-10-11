@@ -189,3 +189,10 @@ Ao terminar CADA pedido do usuário (antes de dar a resposta final), atualize o 
 4. Mantenha o arquivo curto (máx. ~150 linhas): resuma o histórico antigo em vez de acumular.
 5. Faça commit do handoff.md junto com o trabalho (ou em commit separado "docs: handoff").
 Não pergunte se deve atualizar; apenas faça. Se o pedido foi só uma pergunta e nada mudou, não precisa atualizar.
+
+
+## Memória do projeto
+- As notas ficam em `docs/vault/`
+- Você deve ler `docs/vault/Indice.md` no início de cada sessão e abrir só as notas relevantes para a tarefa
+- Ao tomar uma decisão técnica, resolver um problema ou concluir uma tarefa, você deve atualizar a nota correspondente e o Indice.md
+- Nunca guardar senhas, tokens ou chaves nas notas

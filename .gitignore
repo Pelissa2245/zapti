@@ -33,6 +33,10 @@ lerna-debug.log*
 *.swo
 *~
 
+# Obsidian Vault
+docs/vault/.obsidian/workspace*.json
+docs/vault/.obsidian/cache
+
 # OS
 .DS_Store
 Thumbs.db

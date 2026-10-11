@@ -43,6 +43,9 @@ tmp/
 temp/
 *.tmp
 
+# Vault Obsidian
+docs/vault/
+
 # ZapTI specific
 zapti-new/
 zapti-clean/
