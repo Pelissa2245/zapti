@@ -2,23 +2,20 @@ import { FastifyPluginAsync, FastifyInstance, FastifyRequest, FastifyReply } fro
 import { verifyToken, JWTPayload } from '@zapti/shared/auth';
 import { config } from '@zapti/shared/config';
 
-// Declare module augmentation for Fastify
-declare module 'fastify' {
-  interface FastifyRequest {
-    user?: JWTPayload;
-    tenant?: {
-      id: string;
-      name: string;
-      isActive: boolean;
-      slug: string;
-      domain: string | null;
-      logo: string | null;
-      primaryColor: string;
-      secondaryColor: string;
-      accentColor: string;
-      fontFamily: string | null;
-    };
-  }
+// Extended tenant type with timezone and locale
+interface TenantWithMeta {
+  id: string;
+  name: string;
+  isActive: boolean;
+  slug: string;
+  domain: string | null;
+  logo: string | null;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  fontFamily: string | null;
+  timezone: string;
+  locale: string;
 }
 
 export const authPlugin: FastifyPluginAsync = async (app) => {
@@ -60,7 +57,13 @@ export const authPlugin: FastifyPluginAsync = async (app) => {
         });
       }
 
-      request.user = payload;
+      request.user = {
+        sub: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        tenantId: user.tenantId,
+      } as JWTPayload;
       request.tenant = {
         id: user.tenant.id,
         name: user.tenant.name,
@@ -72,7 +75,9 @@ export const authPlugin: FastifyPluginAsync = async (app) => {
         secondaryColor: user.tenant.secondaryColor,
         accentColor: user.tenant.accentColor,
         fontFamily: user.tenant.fontFamily,
-      };
+        timezone: user.tenant.timezone ?? 'UTC',
+        locale: user.tenant.locale ?? 'en',
+      } satisfies TenantWithMeta;
     } catch (error) {
       return reply.status(401).send({
         success: false,
@@ -110,12 +115,14 @@ export const authPlugin: FastifyPluginAsync = async (app) => {
               secondaryColor: user.tenant.secondaryColor,
               accentColor: user.tenant.accentColor,
               fontFamily: user.tenant.fontFamily,
-            };
+              timezone: user.tenant.timezone ?? 'UTC',
+              locale: user.tenant.locale ?? 'en',
+            } satisfies TenantWithMeta;
           }
         }
       }
-    } catch (error) {
-      // Ignore errors for optional auth
+    } catch {
+      // Silently ignore optional auth failures
     }
   });
 };

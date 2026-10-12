@@ -1,0 +1,1310 @@
+{
+  "nodes": [
+    {
+      "id": "claude_md",
+      "label": "CLAUDE.md (Root)",
+      "file_type": "document",
+      "source_file": "CLAUDE.md",
+      "rationale": "Root project guidance file providing overview, commands, architecture highlights, known issues, and workflow for the ZapTI monorepo"
+    },
+    {
+      "id": "docker_compose_prod_yml",
+      "label": "docker-compose.prod.yml",
+      "file_type": "code",
+      "source_file": "docker-compose.prod.yml",
+      "rationale": "Production docker-compose defining 5 services (postgres, redis, evolution, api, web) with healthchecks, volumes, and network isolation"
+    },
+    {
+      "id": "api_routes_md",
+      "label": "API-Routes.md",
+      "file_type": "document",
+      "source_file": "docs/vault/API-Routes.md",
+      "rationale": "Complete API contract documentation with all endpoints, authentication, WebSocket events, error codes, and pagination standards"
+    },
+    {
+      "id": "arquitetura_md",
+      "label": "Arquitetura.md",
+      "file_type": "document",
+      "source_file": "docs/vault/Arquitetura.md",
+      "rationale": "System architecture documentation with component diagrams, data flows, Prisma models, auth strategy, WebSocket, Evolution integration, and security"
+    },
+    {
+      "id": "vault_claude_md",
+      "label": "CLAUDE.md (Vault)",
+      "file_type": "document",
+      "source_file": "docs/vault/CLAUDE.md",
+      "rationale": "Vault-specific guidance for Claude Code on knowledge management conventions, note templates, workflows, and integration with codebase"
+    },
+    {
+      "id": "adr_001_prisma_schema",
+      "label": "ADR 001 - Prisma Schema Unificado",
+      "file_type": "document",
+      "source_file": "docs/vault/Decisoes/001-Prisma-Schema-Unificado.md",
+      "rationale": "Decision to unify two Prisma schemas into packages/database/prisma/schema.prisma as single source of truth"
+    },
+    {
+      "id": "adr_002_docker_compose",
+      "label": "ADR 002 - Docker Compose Local",
+      "file_type": "document",
+      "source_file": "docs/vault/Decisoes/002-Docker-Compose-Local.md",
+      "rationale": "Decision to use docker-compose.prod.yml as only deployment method with 5 orchestrated services"
+    },
+    {
+      "id": "adr_003_evolution_api",
+      "label": "ADR 003 - Evolution API Integration",
+      "file_type": "document",
+      "source_file": "docs/vault/Decisoes/003-Evolution-API-Integration.md",
+      "rationale": "Decision to integrate with self-hosted Evolution API for WhatsApp messaging via webhooks and HTTP API"
+    },
+    {
+      "id": "zapti_project",
+      "label": "ZapTI Project",
+      "file_type": "concept",
+      "source_file": "CLAUDE.md",
+      "rationale": "Multi-tenant WhatsApp helpdesk platform monorepo"
+    },
+    {
+      "id": "monorepo_structure",
+      "label": "Monorepo Structure",
+      "file_type": "concept",
+      "source_file": "CLAUDE.md",
+      "rationale": "Four workspace structure: apps/api, apps/web, packages/shared, packages/database"
+    },
+    {
+      "id": "apps_api",
+      "label": "apps/api (Fastify API)",
+      "file_type": "code",
+      "source_file": "CLAUDE.md",
+      "rationale": "Fastify + Prisma + TypeScript API server on port 3000 with plugins, routes, services, JWT auth, multi-tenant"
+    },
+    {
+      "id": "apps_web",
+      "label": "apps/web (Next.js Web)",
+      "file_type": "code",
+      "source_file": "CLAUDE.md",
+      "rationale": "Next.js 14 + React 18 + Tailwind frontend on port 3001 with Radix UI, TanStack Query, Zustand"
+    },
+    {
+      "id": "packages_shared",
+      "label": "packages/shared",
+      "file_type": "code",
+      "source_file": "CLAUDE.md",
+      "rationale": "ESM shared package with config, auth, email, notification, utils, constants, validation, types exports"
+    },
+    {
+      "id": "packages_database",
+      "label": "packages/database",
+      "file_type": "code",
+      "source_file": "CLAUDE.md",
+      "rationale": "Prisma schema & migrations package - single source of truth for data model"
+    },
+    {
+      "id": "postgres_service",
+      "label": "PostgreSQL Service",
+      "file_type": "concept",
+      "source_file": "docker-compose.prod.yml",
+      "rationale": "PostgreSQL 16 database on port 5432 with schemas public (api) and evolution (evolution-api)"
+    },
+    {
+      "id": "redis_service",
+      "label": "Redis Service",
+      "file_type": "concept",
+      "source_file": "docker-compose.prod.yml",
+      "rationale": "Redis 7 on port 6379 for caching, queues, and Evolution API session storage"
+    },
+    {
+      "id": "evolution_service",
+      "label": "Evolution API Service",
+      "file_type": "code",
+      "source_file": "docker-compose.prod.yml",
+      "rationale": "Evolution API (evoapicloud/evolution-api:latest) on port 8080 for WhatsApp Business API wrapper with webhooks"
+    },
+    {
+      "id": "api_service",
+      "label": "API Service (Docker)",
+      "file_type": "code",
+      "source_file": "docker-compose.prod.yml",
+      "rationale": "API container built from apps/api/Dockerfile on port 3000 with env vars for DB, Redis, JWT, Evolution"
+    },
+    {
+      "id": "web_service",
+      "label": "Web Service (Docker)",
+      "file_type": "code",
+      "source_file": "docker-compose.prod.yml",
+      "rationale": "Web container built from apps/web/Dockerfile on port 3001 with NEXT_PUBLIC_* env vars"
+    },
+    {
+      "id": "auth_module",
+      "label": "Auth Module (/auth)",
+      "file_type": "concept",
+      "source_file": "docs/vault/API-Routes.md",
+      "rationale": "JWT authentication endpoints: login, refresh, logout, me, 2FA enable/verify/disable"
+    },
+    {
+      "id": "tenants_module",
+      "label": "Tenants Module (/tenants)",
+      "file_type": "concept",
+      "source_file": "docs/vault/API-Routes.md",
+      "rationale": "SUPER_ADMIN only tenant CRUD and stats endpoints"
+    },
+    {
+      "id": "users_module",
+      "label": "Users Module (/users)",
+      "file_type": "concept",
+      "source_file": "docs/vault/API-Routes.md",
+      "rationale": "ADMIN+ user management: list, create, update, delete, invite, password reset"
+    },
+    {
+      "id": "contacts_module",
+      "label": "Contacts Module (/contacts)",
+      "file_type": "concept",
+      "source_file": "docs/vault/API-Routes.md",
+      "rationale": "Contact CRUD with tags, groups, import, and conversation linking"
+    },
+    {
+      "id": "conversations_module",
+      "label": "Conversations Module (/conversations)",
+      "file_type": "concept",
+      "source_file": "docs/vault/API-Routes.md",
+      "rationale": "Conversation management with status, priority, assignment, messaging, read receipts"
+    },
+    {
+      "id": "messages_module",
+      "label": "Messages Module (/messages)",
+      "file_type": "concept",
+      "source_file": "docs/vault/API-Routes.md",
+      "rationale": "Message listing and sending with conversation/contact filtering"
+    },
+    {
+      "id": "tickets_module",
+      "label": "Tickets Module (/tickets)",
+      "file_type": "concept",
+      "source_file": "docs/vault/API-Routes.md",
+      "rationale": "Helpdesk ticket CRUD with comments, assignment, status changes"
+    },
+    {
+      "id": "groups_module",
+      "label": "Groups Module (/groups)",
+      "file_type": "concept",
+      "source_file": "docs/vault/API-Routes.md",
+      "rationale": "WhatsApp group management with members"
+    },
+    {
+      "id": "campaigns_module",
+      "label": "Campaigns Module (/campaigns)",
+      "file_type": "concept",
+      "source_file": "docs/vault/API-Routes.md",
+      "rationale": "WhatsApp campaign broadcasting with scheduling, logs, send/cancel"
+    },
+    {
+      "id": "automations_module",
+      "label": "Automations Module (/automations)",
+      "file_type": "concept",
+      "source_file": "docs/vault/API-Routes.md",
+      "rationale": "Automation engine with triggers, conditions, actions, execution history"
+    },
+    {
+      "id": "webhooks_module",
+      "label": "Webhooks Module (/webhooks)",
+      "file_type": "concept",
+      "source_file": "docs/vault/API-Routes.md",
+      "rationale": "Evolution API webhook receiver with apikey auth for MESSAGES_UPSERT, CONNECTION_UPDATE, QRCODE_UPDATED"
+    },
+    {
+      "id": "integrations_module",
+      "label": "Integrations Module (/integrations)",
+      "file_type": "concept",
+      "source_file": "docs/vault/API-Routes.md",
+      "rationale": "External integration management with config, testing, CRUD"
+    },
+    {
+      "id": "settings_module",
+      "label": "Settings Module (/settings)",
+      "file_type": "concept",
+      "source_file": "docs/vault/API-Routes.md",
+      "rationale": "Tenant-scoped key-value settings CRUD"
+    },
+    {
+      "id": "templates_module",
+      "label": "Templates Module (/templates)",
+      "file_type": "concept",
+      "source_file": "docs/vault/API-Routes.md",
+      "rationale": "WhatsApp Business API template management with Meta submission"
+    },
+    {
+      "id": "audit_module",
+      "label": "Audit Module (/audit)",
+      "file_type": "concept",
+      "source_file": "docs/vault/API-Routes.md",
+      "rationale": "ADMIN+ audit log querying with filters"
+    },
+    {
+      "id": "health_module",
+      "label": "Health Module (/health, /ready)",
+      "file_type": "concept",
+      "source_file": "docs/vault/API-Routes.md",
+      "rationale": "Liveness and readiness checks with dependency verification"
+    },
+    {
+      "id": "websocket_events",
+      "label": "WebSocket Events",
+      "file_type": "concept",
+      "source_file": "docs/vault/API-Routes.md",
+      "rationale": "Real-time events: new:message, update:conversation, new:ticket, update:ticket, notification with subscribe/unsubscribe"
+    },
+    {
+      "id": "prisma_schema",
+      "label": "Prisma Schema (packages/database)",
+      "file_type": "code",
+      "source_file": "docs/vault/Arquitetura.md",
+      "rationale": "Single source of truth for data models: Tenant, User, Contact, Conversation, Message, Ticket, Group, Campaign, Automation, Webhook, Integration, AuditLog, Setting, Template, RefreshToken, PasswordReset, CampaignLog, AutomationExecution"
+    },
+    {
+      "id": "user_role_enum",
+      "label": "UserRole Enum",
+      "file_type": "concept",
+      "source_file": "docs/vault/Arquitetura.md",
+      "rationale": "ADMIN, SUPER_ADMIN, AGENT, VIEWER roles for authorization"
+    },
+    {
+      "id": "conversation_status_enum",
+      "label": "ConversationStatus Enum",
+      "file_type": "concept",
+      "source_file": "docs/vault/Arquitetura.md",
+      "rationale": "OPEN, PENDING, RESOLVED, CLOSED, SPAM conversation states"
+    },
+    {
+      "id": "message_type_enum",
+      "label": "MessageType Enum",
+      "file_type": "concept",
+      "source_file": "docs/vault/Arquitetura.md",
+      "rationale": "TEXT, IMAGE, AUDIO, VIDEO, DOCUMENT, LOCATION, CONTACT, STICKER, REACTION, TEMPLATE message types"
+    },
+    {
+      "id": "message_direction_enum",
+      "label": "MessageDirection Enum",
+      "file_type": "concept",
+      "source_file": "docs/vault/Arquitetura.md",
+      "rationale": "INBOUND, OUTBOUND message directions"
+    },
+    {
+      "id": "ticket_status_enum",
+      "label": "TicketStatus Enum",
+      "file_type": "concept",
+      "source_file": "docs/vault/Arquitetura.md",
+      "rationale": "OPEN, IN_PROGRESS, PENDING, RESOLVED, CLOSED ticket states"
+    },
+    {
+      "id": "automation_trigger_enum",
+      "label": "AutomationTrigger Enum",
+      "file_type": "concept",
+      "source_file": "docs/vault/Arquitetura.md",
+      "rationale": "NEW_MESSAGE, NEW_CONVERSATION, KEYWORD_MATCH, TIME_BASED, CONTACT_TAG_ADDED, TICKET_CREATED, TICKET_STATUS_CHANGED triggers"
+    },
+    {
+      "id": "jwt_auth",
+      "label": "JWT Authentication",
+      "file_type": "concept",
+      "source_file": "docs/vault/Arquitetura.md",
+      "rationale": "Access token 15min, refresh token 7d with tenantId in payload for multi-tenancy"
+    },
+    {
+      "id": "middleware_chain",
+      "label": "Fastify Middleware Chain",
+      "file_type": "concept",
+      "source_file": "docs/vault/Arquitetura.md",
+      "rationale": "helmet -> cors -> rateLimit -> jwt.verify -> tenantPlugin -> route handler"
+    },
+    {
+      "id": "inbound_flow",
+      "label": "Inbound Message Flow",
+      "file_type": "concept",
+      "source_file": "docs/vault/Arquitetura.md",
+      "rationale": "WhatsApp -> Evolution -> Webhook -> API -> Contact/Conversation/Message -> Automation -> WebSocket"
+    },
+    {
+      "id": "outbound_flow",
+      "label": "Outbound Message Flow",
+      "file_type": "concept",
+      "source_file": "docs/vault/Arquitetura.md",
+      "rationale": "Agent -> API -> Evolution -> WhatsApp -> Webhook status update -> Message status DELIVERED/READ"
+    },
+    {
+      "id": "automation_engine",
+      "label": "Automation Engine",
+      "file_type": "concept",
+      "source_file": "docs/vault/Arquitetura.md",
+      "rationale": "Trigger -> Conditions -> Actions pattern with JSON conditions and action types: SEND_MESSAGE, ASSIGN_AGENT, CREATE_TICKET, ADD_TAG, WEBHOOK"
+    },
+    {
+      "id": "evolution_webhook",
+      "label": "Evolution Webhook Processing",
+      "file_type": "concept",
+      "source_file": "docs/vault/Arquitetura.md",
+      "rationale": "processEvolutionWebhook() handles MESSAGES_UPSERT, CONNECTION_UPDATE, QRCODE_UPDATED events"
+    },
+    {
+      "id": "env_vars",
+      "label": "Critical Environment Variables",
+      "file_type": "concept",
+      "source_file": "docs/vault/Arquitetura.md",
+      "rationale": "DATABASE_URL, REDIS_URL, JWT_SECRET, EVOLUTION_API_URL, EVOLUTION_API_KEY, EVOLUTION_INSTANCE_NAME, CORS_ORIGIN, NEXT_PUBLIC_*"
+    },
+    {
+      "id": "health_checks",
+      "label": "Health Checks",
+      "file_type": "concept",
+      "source_file": "docs/vault/Arquitetura.md",
+      "rationale": "Service health endpoints: pg_isready, redis-cli ping, wget evolution, wget api/health"
+    },
+    {
+      "id": "performance_indexes",
+      "label": "Prisma Performance Indexes",
+      "file_type": "concept",
+      "source_file": "docs/vault/Arquitetura.md",
+      "rationale": "Composite indexes for Conversation, Message, Ticket, AuditLog queries"
+    },
+    {
+      "id": "security_measures",
+      "label": "Security Measures",
+      "file_type": "concept",
+      "source_file": "docs/vault/Arquitetura.md",
+      "rationale": "Helmet, CORS, Rate Limit, JWT RS256/HS256, bcrypt cost 12, 2FA TOTP, Audit Log, Tenant Isolation"
+    },
+    {
+      "id": "observability",
+      "label": "Observability",
+      "file_type": "concept",
+      "source_file": "docs/vault/Arquitetura.md",
+      "rationale": "Pino logs, /health (liveness), /ready (readiness), Swagger /docs, AuditLog table"
+    },
+    {
+      "id": "vault_structure",
+      "label": "Vault Structure (PARA)",
+      "file_type": "concept",
+      "source_file": "docs/vault/CLAUDE.md",
+      "rationale": "Índice.md, Visao-Geral.md, Arquitetura.md, Tarefas.md, Problemas-e-Solucoes.md, Decisoes/ ADRs"
+    },
+    {
+      "id": "vault_conventions",
+      "label": "Vault Conventions",
+      "file_type": "concept",
+      "source_file": "docs/vault/CLAUDE.md",
+      "rationale": "Naming, linking (Wikilinks), frontmatter, maintenance checklist, anti-patterns"
+    },
+    {
+      "id": "handoff_protocol",
+      "label": "Handoff Protocol",
+      "file_type": "concept",
+      "source_file": "CLAUDE.md",
+      "rationale": "Mandatory handoff.md update after each request with estado atual, arquivos alterados, problemas, proximos passos"
+    },
+    {
+      "id": "dev_commands",
+      "label": "Development Commands",
+      "file_type": "concept",
+      "source_file": "CLAUDE.md",
+      "rationale": "npm run dev/build/lint/typecheck/test/db:* for root, api, web, shared, database workspaces"
+    },
+    {
+      "id": "known_issues",
+      "label": "Known Issues/Risks",
+      "file_type": "concept",
+      "source_file": "CLAUDE.md",
+      "rationale": "Two Prisma schemas, CampaignLog relation, missing sendErrorNotification, TS errors, Docker build, Evolution unverified, no GitHub remote"
+    },
+    {
+      "id": "recommended_workflow",
+      "label": "Recommended Workflow",
+      "file_type": "concept",
+      "source_file": "CLAUDE.md",
+      "rationale": "Git status -> Unify Prisma -> Compile order (shared->database->api->web) -> Docker build/up -> Test Evolution -> Push GitHub"
+    }
+  ],
+  "edges": [
+    {
+      "source": "claude_md",
+      "target": "zapti_project",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "CLAUDE.md",
+      "weight": 1
+    },
+    {
+      "source": "claude_md",
+      "target": "monorepo_structure",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "CLAUDE.md",
+      "weight": 1
+    },
+    {
+      "source": "claude_md",
+      "target": "apps_api",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "CLAUDE.md",
+      "weight": 1
+    },
+    {
+      "source": "claude_md",
+      "target": "apps_web",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "CLAUDE.md",
+      "weight": 1
+    },
+    {
+      "source": "claude_md",
+      "target": "packages_shared",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "CLAUDE.md",
+      "weight": 1
+    },
+    {
+      "source": "claude_md",
+      "target": "packages_database",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "CLAUDE.md",
+      "weight": 1
+    },
+    {
+      "source": "claude_md",
+      "target": "docker_compose_prod_yml",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "CLAUDE.md",
+      "weight": 1
+    },
+    {
+      "source": "claude_md",
+      "target": "dev_commands",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "CLAUDE.md",
+      "weight": 1
+    },
+    {
+      "source": "claude_md",
+      "target": "known_issues",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "CLAUDE.md",
+      "weight": 1
+    },
+    {
+      "source": "claude_md",
+      "target": "recommended_workflow",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "CLAUDE.md",
+      "weight": 1
+    },
+    {
+      "source": "claude_md",
+      "target": "handoff_protocol",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "CLAUDE.md",
+      "weight": 1
+    },
+    {
+      "source": "docker_compose_prod_yml",
+      "target": "postgres_service",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docker-compose.prod.yml",
+      "weight": 1
+    },
+    {
+      "source": "docker_compose_prod_yml",
+      "target": "redis_service",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docker-compose.prod.yml",
+      "weight": 1
+    },
+    {
+      "source": "docker_compose_prod_yml",
+      "target": "evolution_service",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docker-compose.prod.yml",
+      "weight": 1
+    },
+    {
+      "source": "docker_compose_prod_yml",
+      "target": "api_service",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docker-compose.prod.yml",
+      "weight": 1
+    },
+    {
+      "source": "docker_compose_prod_yml",
+      "target": "web_service",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docker-compose.prod.yml",
+      "weight": 1
+    },
+    {
+      "source": "api_routes_md",
+      "target": "auth_module",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/API-Routes.md",
+      "weight": 1
+    },
+    {
+      "source": "api_routes_md",
+      "target": "tenants_module",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/API-Routes.md",
+      "weight": 1
+    },
+    {
+      "source": "api_routes_md",
+      "target": "users_module",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/API-Routes.md",
+      "weight": 1
+    },
+    {
+      "source": "api_routes_md",
+      "target": "contacts_module",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/API-Routes.md",
+      "weight": 1
+    },
+    {
+      "source": "api_routes_md",
+      "target": "conversations_module",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/API-Routes.md",
+      "weight": 1
+    },
+    {
+      "source": "api_routes_md",
+      "target": "messages_module",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/API-Routes.md",
+      "weight": 1
+    },
+    {
+      "source": "api_routes_md",
+      "target": "tickets_module",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/API-Routes.md",
+      "weight": 1
+    },
+    {
+      "source": "api_routes_md",
+      "target": "groups_module",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/API-Routes.md",
+      "weight": 1
+    },
+    {
+      "source": "api_routes_md",
+      "target": "campaigns_module",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/API-Routes.md",
+      "weight": 1
+    },
+    {
+      "source": "api_routes_md",
+      "target": "automations_module",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/API-Routes.md",
+      "weight": 1
+    },
+    {
+      "source": "api_routes_md",
+      "target": "webhooks_module",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/API-Routes.md",
+      "weight": 1
+    },
+    {
+      "source": "api_routes_md",
+      "target": "integrations_module",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/API-Routes.md",
+      "weight": 1
+    },
+    {
+      "source": "api_routes_md",
+      "target": "settings_module",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/API-Routes.md",
+      "weight": 1
+    },
+    {
+      "source": "api_routes_md",
+      "target": "templates_module",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/API-Routes.md",
+      "weight": 1
+    },
+    {
+      "source": "api_routes_md",
+      "target": "audit_module",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/API-Routes.md",
+      "weight": 1
+    },
+    {
+      "source": "api_routes_md",
+      "target": "health_module",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/API-Routes.md",
+      "weight": 1
+    },
+    {
+      "source": "api_routes_md",
+      "target": "websocket_events",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/API-Routes.md",
+      "weight": 1
+    },
+    {
+      "source": "arquitetura_md",
+      "target": "prisma_schema",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Arquitetura.md",
+      "weight": 1
+    },
+    {
+      "source": "arquitetura_md",
+      "target": "user_role_enum",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Arquitetura.md",
+      "weight": 1
+    },
+    {
+      "source": "arquitetura_md",
+      "target": "conversation_status_enum",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Arquitetura.md",
+      "weight": 1
+    },
+    {
+      "source": "arquitetura_md",
+      "target": "message_type_enum",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Arquitetura.md",
+      "weight": 1
+    },
+    {
+      "source": "arquitetura_md",
+      "target": "message_direction_enum",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Arquitetura.md",
+      "weight": 1
+    },
+    {
+      "source": "arquitetura_md",
+      "target": "ticket_status_enum",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Arquitetura.md",
+      "weight": 1
+    },
+    {
+      "source": "arquitetura_md",
+      "target": "automation_trigger_enum",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Arquitetura.md",
+      "weight": 1
+    },
+    {
+      "source": "arquitetura_md",
+      "target": "jwt_auth",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Arquitetura.md",
+      "weight": 1
+    },
+    {
+      "source": "arquitetura_md",
+      "target": "middleware_chain",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Arquitetura.md",
+      "weight": 1
+    },
+    {
+      "source": "arquitetura_md",
+      "target": "inbound_flow",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Arquitetura.md",
+      "weight": 1
+    },
+    {
+      "source": "arquitetura_md",
+      "target": "outbound_flow",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Arquitetura.md",
+      "weight": 1
+    },
+    {
+      "source": "arquitetura_md",
+      "target": "automation_engine",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Arquitetura.md",
+      "weight": 1
+    },
+    {
+      "source": "arquitetura_md",
+      "target": "evolution_webhook",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Arquitetura.md",
+      "weight": 1
+    },
+    {
+      "source": "arquitetura_md",
+      "target": "env_vars",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Arquitetura.md",
+      "weight": 1
+    },
+    {
+      "source": "arquitetura_md",
+      "target": "health_checks",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Arquitetura.md",
+      "weight": 1
+    },
+    {
+      "source": "arquitetura_md",
+      "target": "performance_indexes",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Arquitetura.md",
+      "weight": 1
+    },
+    {
+      "source": "arquitetura_md",
+      "target": "security_measures",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Arquitetura.md",
+      "weight": 1
+    },
+    {
+      "source": "arquitetura_md",
+      "target": "observability",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Arquitetura.md",
+      "weight": 1
+    },
+    {
+      "source": "arquitetura_md",
+      "target": "docker_compose_prod_yml",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Arquitetura.md",
+      "weight": 1
+    },
+    {
+      "source": "arquitetura_md",
+      "target": "apps_api",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Arquitetura.md",
+      "weight": 1
+    },
+    {
+      "source": "arquitetura_md",
+      "target": "packages_database",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Arquitetura.md",
+      "weight": 1
+    },
+    {
+      "source": "vault_claude_md",
+      "target": "vault_structure",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/CLAUDE.md",
+      "weight": 1
+    },
+    {
+      "source": "vault_claude_md",
+      "target": "vault_conventions",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/CLAUDE.md",
+      "weight": 1
+    },
+    {
+      "source": "vault_claude_md",
+      "target": "adr_001_prisma_schema",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/CLAUDE.md",
+      "weight": 1
+    },
+    {
+      "source": "vault_claude_md",
+      "target": "adr_002_docker_compose",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/CLAUDE.md",
+      "weight": 1
+    },
+    {
+      "source": "vault_claude_md",
+      "target": "adr_003_evolution_api",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/CLAUDE.md",
+      "weight": 1
+    },
+    {
+      "source": "adr_001_prisma_schema",
+      "target": "packages_database",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Decisoes/001-Prisma-Schema-Unificado.md",
+      "weight": 1
+    },
+    {
+      "source": "adr_001_prisma_schema",
+      "target": "apps_api",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Decisoes/001-Prisma-Schema-Unificado.md",
+      "weight": 1
+    },
+    {
+      "source": "adr_001_prisma_schema",
+      "target": "prisma_schema",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Decisoes/001-Prisma-Schema-Unificado.md",
+      "weight": 1
+    },
+    {
+      "source": "adr_002_docker_compose",
+      "target": "docker_compose_prod_yml",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Decisoes/002-Docker-Compose-Local.md",
+      "weight": 1
+    },
+    {
+      "source": "adr_002_docker_compose",
+      "target": "postgres_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Decisoes/002-Docker-Compose-Local.md",
+      "weight": 1
+    },
+    {
+      "source": "adr_002_docker_compose",
+      "target": "redis_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Decisoes/002-Docker-Compose-Local.md",
+      "weight": 1
+    },
+    {
+      "source": "adr_002_docker_compose",
+      "target": "evolution_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Decisoes/002-Docker-Compose-Local.md",
+      "weight": 1
+    },
+    {
+      "source": "adr_002_docker_compose",
+      "target": "api_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Decisoes/002-Docker-Compose-Local.md",
+      "weight": 1
+    },
+    {
+      "source": "adr_002_docker_compose",
+      "target": "web_service",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Decisoes/002-Docker-Compose-Local.md",
+      "weight": 1
+    },
+    {
+      "source": "adr_003_evolution_api",
+      "target": "evolution_service",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Decisoes/003-Evolution-API-Integration.md",
+      "weight": 1
+    },
+    {
+      "source": "adr_003_evolution_api",
+      "target": "webhooks_module",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Decisoes/003-Evolution-API-Integration.md",
+      "weight": 1
+    },
+    {
+      "source": "adr_003_evolution_api",
+      "target": "inbound_flow",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Decisoes/003-Evolution-API-Integration.md",
+      "weight": 1
+    },
+    {
+      "source": "adr_003_evolution_api",
+      "target": "outbound_flow",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Decisoes/003-Evolution-API-Integration.md",
+      "weight": 1
+    },
+    {
+      "source": "adr_003_evolution_api",
+      "target": "evolution_webhook",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Decisoes/003-Evolution-API-Integration.md",
+      "weight": 1
+    },
+    {
+      "source": "adr_003_evolution_api",
+      "target": "env_vars",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Decisoes/003-Evolution-API-Integration.md",
+      "weight": 1
+    },
+    {
+      "source": "apps_api",
+      "target": "packages_database",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "CLAUDE.md",
+      "weight": 1
+    },
+    {
+      "source": "apps_web",
+      "target": "apps_api",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "CLAUDE.md",
+      "weight": 1
+    },
+    {
+      "source": "apps_web",
+      "target": "packages_shared",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "CLAUDE.md",
+      "weight": 1
+    },
+    {
+      "source": "apps_api",
+      "target": "packages_shared",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "CLAUDE.md",
+      "weight": 1
+    },
+    {
+      "source": "evolution_service",
+      "target": "postgres_service",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "docker-compose.prod.yml",
+      "weight": 1
+    },
+    {
+      "source": "evolution_service",
+      "target": "redis_service",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "docker-compose.prod.yml",
+      "weight": 1
+    },
+    {
+      "source": "api_service",
+      "target": "postgres_service",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "docker-compose.prod.yml",
+      "weight": 1
+    },
+    {
+      "source": "api_service",
+      "target": "redis_service",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "docker-compose.prod.yml",
+      "weight": 1
+    },
+    {
+      "source": "api_service",
+      "target": "evolution_service",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "docker-compose.prod.yml",
+      "weight": 1
+    },
+    {
+      "source": "evolution_service",
+      "target": "api_service",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "docker-compose.prod.yml",
+      "weight": 1
+    },
+    {
+      "source": "webhooks_module",
+      "target": "inbound_flow",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/API-Routes.md",
+      "weight": 1
+    },
+    {
+      "source": "conversations_module",
+      "target": "messages_module",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/API-Routes.md",
+      "weight": 1
+    },
+    {
+      "source": "automations_module",
+      "target": "automation_engine",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/API-Routes.md",
+      "weight": 1
+    },
+    {
+      "source": "automation_engine",
+      "target": "websocket_events",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.7,
+      "source_file": "docs/vault/Arquitetura.md",
+      "weight": 1
+    },
+    {
+      "source": "inbound_flow",
+      "target": "websocket_events",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.7,
+      "source_file": "docs/vault/Arquitetura.md",
+      "weight": 1
+    },
+    {
+      "source": "jwt_auth",
+      "target": "middleware_chain",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/Arquitetura.md",
+      "weight": 1
+    },
+    {
+      "source": "tenant_module",
+      "target": "jwt_auth",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.7,
+      "source_file": "docs/vault/Arquitetura.md",
+      "weight": 1
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "api_surface",
+      "label": "Complete API Surface",
+      "nodes": [
+        "auth_module",
+        "tenants_module",
+        "users_module",
+        "contacts_module",
+        "conversations_module",
+        "messages_module",
+        "tickets_module",
+        "groups_module",
+        "campaigns_module",
+        "automations_module",
+        "webhooks_module",
+        "integrations_module",
+        "settings_module",
+        "templates_module",
+        "audit_module",
+        "health_module"
+      ],
+      "relation": "form",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docs/vault/API-Routes.md"
+    },
+    {
+      "id": "docker_stack",
+      "label": "Docker Compose Stack",
+      "nodes": [
+        "postgres_service",
+        "redis_service",
+        "evolution_service",
+        "api_service",
+        "web_service"
+      ],
+      "relation": "participate_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1,
+      "source_file": "docker-compose.prod.yml"
+    },
+    {
+      "id": "data_flow_inbound",
+      "label": "Inbound WhatsApp Data Flow",
+      "nodes": [
+        "evolution_service",
+        "webhooks_module",
+        "contacts_module",
+        "conversations_module",
+        "messages_module",
+        "automation_engine",
+        "websocket_events"
+      ],
+      "relation": "participate_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 0.9,
+      "source_file": "docs/vault/Arquitetura.md"
+    }
+  ],
+  "input_tokens": 85051,
+  "output_tokens": 356,
+  "failed_chunks": 0,
+  "out_of_scope_dropped": 0,
+  "uncovered_files": []
+}

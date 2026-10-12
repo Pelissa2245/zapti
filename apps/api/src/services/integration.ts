@@ -1,4 +1,4 @@
-import { PrismaClient, IntegrationType, IntegrationStatus } from '@prisma/client';
+import { PrismaClient, IntegrationType, IntegrationStatus } from '@zapti/database';
 
 const prisma = new PrismaClient();
 

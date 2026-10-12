@@ -20,6 +20,8 @@ export interface Tenant {
   secondaryColor: string;
   accentColor: string;
   fontFamily?: string;
+  timezone: string;
+  locale: string;
   settings?: Record<string, unknown>;
   isActive: boolean;
   createdAt: Date;

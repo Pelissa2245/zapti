@@ -1,4 +1,4 @@
-import { PrismaClient, CampaignStatus, MessageStatus } from '@prisma/client';
+import { PrismaClient, CampaignStatus, MessageStatus } from '@zapti/database';
 
 const prisma = new PrismaClient();
 
@@ -54,7 +54,7 @@ export async function sendCampaign(campaignId: string, tenantId: string): Promis
         data: {
           campaignId,
           contactId: contact.id,
-          status: MessageStatus.QUEUED,
+          status: MessageStatus.SENT,
         },
       });
 
@@ -112,7 +112,7 @@ export async function sendCampaign(campaignId: string, tenantId: string): Promis
       });
 
       // Send via WhatsApp
-      const { sendWhatsAppMessage } = await import('./whatsapp');
+      const { sendWhatsAppMessage } = await import('./whatsapp.js');
       sendWhatsAppMessage(conversation, message, tenantId).catch(console.error);
 
       sentCount++;
@@ -151,7 +151,7 @@ export async function sendCampaign(campaignId: string, tenantId: string): Promis
     await prisma.campaign.update({
       where: { id: campaignId },
       data: {
-        status: failedCount > 0 && sentCount === 0 ? 'FAILED' : 'SENT',
+        status: failedCount > 0 && sentCount === 0 ? 'CANCELLED' : 'SENT',
         sentAt: new Date(),
         completedAt: new Date(),
       },

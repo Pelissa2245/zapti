@@ -1,4 +1,4 @@
-import { PrismaClient, MessageType, MessageStatus, MessageDirection } from '@prisma/client';
+import { PrismaClient, MessageType, MessageStatus, MessageDirection } from '@zapti/database';
 import { config } from '@zapti/shared/config';
 
 const prisma = new PrismaClient();

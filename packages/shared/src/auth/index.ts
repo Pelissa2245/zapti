@@ -5,6 +5,7 @@ import { config } from '../config/index.js';
 export interface JWTPayload {
   sub: string;
   email: string;
+  name: string;
   role: string;
   tenantId: string;
   iat?: number;

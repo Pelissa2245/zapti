@@ -1,10 +1,40 @@
-import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { FastifyInstance, FastifyRequest, FastifyReply, RouteGenericInterface } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../services/prisma';
 import { config } from '@zapti/shared/config';
 import { ERROR_CODES } from '@zapti/shared/constants';
 import { hashPassword, verifyPassword, generateAccessToken, generateRefreshToken, verifyToken, extractTokenFromHeader, JWTPayload } from '@zapti/shared/auth';
 import crypto from 'crypto';
+
+// Properly typed authenticated request
+interface AuthenticatedRequest extends FastifyRequest {
+  user: JWTPayload;
+  tenant: {
+    id: string;
+    name: string;
+    isActive: boolean;
+    slug: string;
+    domain: string | null;
+    logo: string | null;
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+    fontFamily: string | null;
+    timezone: string;
+    locale: string;
+  };
+}
+
+// Helper to get authenticated request with proper typing
+function getAuthRequest(request: FastifyRequest): AuthenticatedRequest {
+  return request as AuthenticatedRequest;
+}
+
+// Helper type for authenticated route handlers
+type AuthenticatedHandler<RouteGeneric extends RouteGenericInterface = RouteGenericInterface> = (
+  request: FastifyRequest<RouteGeneric> & { user: JWTPayload; tenant: AuthenticatedRequest['tenant'] },
+  reply: FastifyReply
+) => Promise<void>;
 
 function hashToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
@@ -21,7 +51,7 @@ function generateInvitationToken(): string {
   return crypto.randomBytes(32).toString('hex');
 }
 
-async function verifyTokenHash(token: string, hash: string): Promise<boolean> {
+function verifyTokenHash(token: string, hash: string): boolean {
   return hashToken(token) === hash;
 }
 
@@ -43,7 +73,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       include: { tenant: true },
     });
 
-    if (!user || !await verifyPassword(password, user.password)) {
+    if (!user || !(await verifyPassword(password, user.passwordHash))) {
       return reply.status(401).send({
         success: false,
         error: { code: ERROR_CODES.INVALID_CREDENTIALS, message: 'Invalid email or password' },
@@ -204,9 +234,9 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // Logout
-  fastify.post('/logout', {
+  fastify.post<{ Querystring: Record<string, never> }>('/logout', {
     preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
+  }, async (request: FastifyRequest<{ Querystring: Record<string, never> }> & { user: JWTPayload; tenant: { id: string } }, reply: FastifyReply) => {
     const refreshToken = request.cookies.refreshToken;
 
     if (refreshToken) {
@@ -232,9 +262,9 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // Get current user
-  fastify.get('/me', {
+  fastify.get<{ Querystring: Record<string, never> }>('/me', {
     preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
+  }, async (request: FastifyRequest<{ Querystring: Record<string, never> }> & { user: JWTPayload }, reply: FastifyReply) => {
     const user = await prisma.user.findUnique({
       where: { id: request.user.sub },
       include: {
@@ -268,7 +298,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // Update current user profile
-  fastify.patch('/me', {
+  fastify.patch<{ Body: { name?: string; avatar?: string; currentPassword?: string; newPassword?: string } }>('/me', {
     preHandler: [fastify.authenticate],
     schema: {
       body: z.object({
@@ -278,7 +308,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         newPassword: z.string().min(8).optional(),
       }),
     },
-  }, async (request: FastifyRequest<{ Body: any }>, reply: FastifyReply) => {
+  }, async (request: FastifyRequest<{ Body: { name?: string; avatar?: string; currentPassword?: string; newPassword?: string } }> & { user: JWTPayload }, reply: FastifyReply) => {
     const { name, avatar, currentPassword, newPassword } = request.body;
 
     const user = await prisma.user.findUnique({ where: { id: request.user.sub } });
@@ -302,14 +332,14 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         });
       }
 
-      if (!await verifyPassword(currentPassword, user.password)) {
+      if (!await verifyPassword(currentPassword, user.passwordHash)) {
         return reply.status(401).send({
           success: false,
           error: { code: ERROR_CODES.INVALID_CREDENTIALS, message: 'Current password is incorrect' },
         });
       }
 
-      updateData.password = await hashPassword(newPassword);
+      updateData.passwordHash = await hashPassword(newPassword);
     }
 
     const updatedUser = await prisma.user.update({
@@ -321,8 +351,8 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     // Audit log
     await prisma.auditLog.create({
       data: {
-        tenantId: request.tenant.id,
-        userId: request.user.sub,
+        tenantId: authRequest.tenant.id,
+        userId: authRequest.user.sub,
         action: 'USER_PROFILE_UPDATE',
         entityType: 'User',
         entityId: user.id,
@@ -364,7 +394,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     });
 
     // In production, send reset email
-    const resetUrl = `${config().appUrl}/reset-password?token=${token}&email=${email}`;
+    const resetUrl = `${config().CORS_ORIGIN}/reset-password?token=${token}&email=${email}`;
     console.log(`Password reset for ${email}: ${resetUrl}`);
 
     // Audit log
@@ -417,7 +447,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     const hashedPassword = await hashPassword(password);
     await prisma.user.update({
       where: { id: user.id },
-      data: { password: hashedPassword },
+      data: { passwordHash: hashedPassword },
     });
 
     // Delete used reset token
@@ -450,12 +480,13 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         tenantName: z.string().min(1).max(200).optional(),
       }),
     },
-  }, async (request: FastifyRequest<{ Body: any }>, reply: FastifyReply) => {
+  }, async (request: FastifyRequest<{ Body: { email: string; password: string; name: string; tenantName?: string } }>, reply: FastifyReply) => {
     const { email, password, name, tenantName } = request.body;
 
     // Check if registration is allowed
     const cfg = config();
-    if (!cfg.allowRegistration) {
+    if (cfg.NODE_ENV !== 'development') {
+      // Only allow registration in development mode by default
       return reply.status(403).send({
         success: false,
         error: { code: ERROR_CODES.FORBIDDEN, message: 'Registration is not allowed' },
@@ -485,7 +516,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         tenantId: tenant.id,
         email,
         name,
-        password: hashedPassword,
+        passwordHash: hashedPassword,
         role: 'ADMIN',
       },
     });

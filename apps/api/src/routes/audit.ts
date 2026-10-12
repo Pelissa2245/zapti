@@ -18,6 +18,11 @@ interface AuditQueryParams {
   endDate?: string;
 }
 
+interface AuthenticatedRequest<RouteGeneric extends RouteGenericInterface = RouteGenericInterface> extends FastifyRequest<RouteGeneric> {
+  user: JWTPayload;
+  tenant: NonNullable<FastifyRequest['tenant']>;
+}
+
 export async function auditRoutes(fastify: FastifyInstance): Promise<void> {
   // List audit logs
   fastify.get<{ Querystring: AuditQueryParams }>('/', {
@@ -32,8 +37,8 @@ export async function auditRoutes(fastify: FastifyInstance): Promise<void> {
         endDate: z.string().datetime().optional(),
       }),
     },
-  }, async (request: FastifyRequest<{ Querystring: AuditQueryParams }>, reply: FastifyReply) => {
-    const user = request.user as JWTPayload;
+  }, async (request: AuthenticatedRequest<{ Querystring: AuditQueryParams }>, reply: FastifyReply) => {
+    const user = request.user;
     if (!['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
       return reply.status(403).send({
         success: false,
@@ -44,7 +49,7 @@ export async function auditRoutes(fastify: FastifyInstance): Promise<void> {
     const { page, limit, sortBy, sortOrder, userId, action, entityType, entityId, startDate, endDate } = request.query;
     const skip = (page - 1) * limit;
 
-    const where: any = { tenantId: request.tenant.id };
+    const where: any = { tenantId: request.tenant!.id };
     if (userId) where.userId = userId;
     if (action) where.action = action;
     if (entityType) where.entityType = entityType;
@@ -81,7 +86,7 @@ export async function auditRoutes(fastify: FastifyInstance): Promise<void> {
     schema: {
       params: IdParamSchema,
     },
-  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  }, async (request: AuthenticatedRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
     if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
       return reply.status(403).send({
         success: false,
@@ -90,7 +95,7 @@ export async function auditRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     const log = await prisma.auditLog.findFirst({
-      where: { id: request.params.id, tenantId: request.tenant.id },
+      where: { id: request.params.id, tenantId: request.tenant!.id },
       include: {
         user: { select: { id: true, name: true, email: true } },
       },
@@ -109,7 +114,7 @@ export async function auditRoutes(fastify: FastifyInstance): Promise<void> {
   // Get audit stats
   fastify.get<{ Querystring: { tenantId?: string } }>('/stats/overview', {
     preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest<{ Querystring: { tenantId?: string } }>, reply: FastifyReply) => {
+  }, async (request: AuthenticatedRequest<{ Querystring: { tenantId?: string } }>, reply: FastifyReply) => {
     if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
       return reply.status(403).send({
         success: false,
@@ -118,9 +123,9 @@ export async function auditRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     const [totalLogs, byAction, byEntity, recentActivity] = await Promise.all([
-      prisma.auditLog.count({ where: { tenantId: request.tenant.id } }),
-      prisma.auditLog.groupBy({ by: ['action'], where: { tenantId: request.tenant.id }, _count: true, orderBy: { _count: { action: 'desc' } }, take: 10 }),
-      prisma.auditLog.groupBy({ by: ['entityType'], where: { tenantId: request.tenant.id }, _count: true, orderBy: { _count: { entityType: 'desc' } } }),
+      prisma.auditLog.count({ where: { tenantId: request.tenant!.id } }),
+      prisma.auditLog.groupBy({ by: ['action'], where: { tenantId: request.tenant!.id }, _count: true, orderBy: { _count: { action: 'desc' } }, take: 10 }),
+      prisma.auditLog.groupBy({ by: ['entityType'], where: { tenantId: request.tenant!.id }, _count: true, orderBy: { _count: { entityType: 'desc' } } }),
       prisma.auditLog.findMany({
         where: { tenantId: request.tenant.id },
         take: 20,

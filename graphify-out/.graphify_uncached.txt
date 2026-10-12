@@ -1,0 +1,16 @@
+D:\zapti\CLAUDE.md
+D:\zapti\docker-compose.prod.yml
+D:\zapti\docs\vault\API-Routes.md
+D:\zapti\docs\vault\Arquitetura.md
+D:\zapti\docs\vault\CLAUDE.md
+D:\zapti\docs\vault\Decisoes\001-Prisma-Schema-Unificado.md
+D:\zapti\docs\vault\Decisoes\002-Docker-Compose-Local.md
+D:\zapti\docs\vault\Decisoes\003-Evolution-API-Integration.md
+D:\zapti\docs\vault\Decisoes\004-Shared-Package-ESM.md
+D:\zapti\docs\vault\Decisoes\005-Multi-Tenant-JWT.md
+D:\zapti\docs\vault\Indice.md
+D:\zapti\docs\vault\PLANO-ACAO.md
+D:\zapti\docs\vault\Problemas-e-Solucoes.md
+D:\zapti\docs\vault\README.md
+D:\zapti\docs\vault\Tarefas.md
+D:\zapti\docs\vault\Visao-Geral.md

@@ -1,6 +1,6 @@
 import { FastifyError, FastifyRequest, FastifyReply } from 'fastify';
 import { ZodError } from 'zod';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '@zapti/database';
 import { ERROR_CODES } from '@zapti/shared/constants';
 
 export function errorHandler(error: FastifyError, request: FastifyRequest, reply: FastifyReply) {

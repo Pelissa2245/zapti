@@ -7,119 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Tenant {
-  id            String    @id @default(cuid())
-  name          String
-  slug          String    @unique
-  domain        String?   @unique
-  logo          String?
-  primaryColor  String?   @default("#3b82f6")
-  secondaryColor String?  @default("#1e40af")
-  accentColor   String?   @default("#06b6d4")
-  fontFamily    String?   @default("system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif")
-  settingsJson  Json?
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  users         User[]
-  contacts      Contact[]
-  conversations Conversation[]
-  messages      Message[]
-  tickets       Ticket[]
-  groups        Group[]
-  campaigns     Campaign[]
-  automations   Automation[]
-  webhooks      Webhook[]
-  integrations  Integration[]
-  auditLogs     AuditLog[]
-  settings      Setting[]
-
-  @@index([slug])
-  @@index([domain])
-}
-
-model User {
-  id            String    @id @default(cuid())
-  email         String
-  name          String
-  passwordHash  String
-  avatar        String?
-  role          UserRole  @default(AGENT)
-  isActive      Boolean   @default(true)
-  lastLoginAt   DateTime?
-  twoFactorEnabled Boolean @default(false)
-  twoFactorSecret String?
-  tenantId      String
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  assignedTickets Ticket[] @relation("AssignedTickets")
-  createdTickets  Ticket[] @relation("CreatedTickets")
-  messages      Message[]
-  auditLogs     AuditLog[]
-  ticketComments TicketComment[]
-  assignedConversations Conversation[] @relation("AssignedConversations")
-
-  @@unique([email, tenantId])
-  @@index([tenantId])
-  @@index([email])
-}
-
 enum UserRole {
   ADMIN
   SUPER_ADMIN
   AGENT
   VIEWER
-}
-
-model Contact {
-  id            String    @id @default(cuid())
-  name          String
-  phone         String
-  email         String?
-  avatar        String?
-  tags          String[]
-  customFields  Json?
-  tenantId      String
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  conversations Conversation[]
-  messages      Message[]
-  groupMembers  GroupMember[]
-  campaignMessages CampaignMessage[]
-
-  @@unique([phone, tenantId])
-  @@index([tenantId])
-  @@index([phone])
-  @@index([email])
-}
-
-model Conversation {
-  id            String    @id @default(cuid())
-  contactId     String
-  tenantId      String
-  status        ConversationStatus @default(OPEN)
-  priority      Priority  @default(NORMAL)
-  assignedToId  String?
-  lastMessageAt DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  contact       Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  assignedTo    User?     @relation("AssignedConversations", fields: [assignedToId], references: [id], onDelete: SetNull)
-  messages      Message[]
-  tickets       Ticket[]
-
-  @@index([tenantId])
-  @@index([contactId])
-  @@index([assignedToId])
-  @@index([status])
-  @@index([lastMessageAt])
 }
 
 enum ConversationStatus {
@@ -135,35 +27,6 @@ enum Priority {
   NORMAL
   HIGH
   URGENT
-}
-
-model Message {
-  id            String    @id @default(cuid())
-  conversationId String
-  contactId     String
-  tenantId      String
-  userId        String?
-  content       String
-  type          MessageType @default(TEXT)
-  mediaUrl      String?
-  mediaType     String?
-  direction     MessageDirection
-  status        MessageStatus @default(SENT)
-  externalId    String?
-  metadata      Json?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  conversation  Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  contact       Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  tenant        Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user          User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  @@index([tenantId])
-  @@index([conversationId])
-  @@index([contactId])
-  @@index([externalId])
-  @@index([createdAt])
 }
 
 enum MessageType {
@@ -191,35 +54,6 @@ enum MessageStatus {
   FAILED
 }
 
-model Ticket {
-  id            String    @id @default(cuid())
-  title         String
-  description   String?
-  status        TicketStatus @default(OPEN)
-  priority      Priority  @default(NORMAL)
-  conversationId String?
-  tenantId      String
-  assignedToId  String?
-  createdById   String
-  dueDate       DateTime?
-  resolvedAt    DateTime?
-  closedAt      DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  conversation  Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
-  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  assignedTo    User?     @relation("AssignedTickets", fields: [assignedToId], references: [id], onDelete: SetNull)
-  createdBy     User      @relation("CreatedTickets", fields: [createdById], references: [id], onDelete: Cascade)
-  comments      TicketComment[]
-
-  @@index([tenantId])
-  @@index([conversationId])
-  @@index([assignedToId])
-  @@index([status])
-  @@index([priority])
-}
-
 enum TicketStatus {
   OPEN
   IN_PROGRESS
@@ -228,77 +62,9 @@ enum TicketStatus {
   CLOSED
 }
 
-model TicketComment {
-  id        String   @id @default(cuid())
-  ticketId  String
-  userId    String
-  content   String
-  isInternal Boolean @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([ticketId])
-}
-
-model Group {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  tenantId    String
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  members     GroupMember[]
-
-  @@index([tenantId])
-}
-
-model GroupMember {
-  id        String   @id @default(cuid())
-  groupId   String
-  contactId String
-  role      GroupRole @default(MEMBER)
-  joinedAt  DateTime @default(now())
-
-  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
-
-  @@unique([groupId, contactId])
-  @@index([groupId])
-  @@index([contactId])
-}
-
 enum GroupRole {
   ADMIN
   MEMBER
-}
-
-model Campaign {
-  id          String       @id @default(cuid())
-  name        String
-  description String?
-  templateId  String?
-  tenantId    String
-  status      CampaignStatus @default(DRAFT)
-  scheduledAt DateTime?
-  sentAt      DateTime?
-  completedAt DateTime?
-  totalRecipients Int      @default(0)
-  sentCount   Int          @default(0)
-  failedCount Int          @default(0)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-
-  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  messages    CampaignMessage[]
-
-  @@index([tenantId])
-  @@index([status])
 }
 
 enum CampaignStatus {
@@ -308,40 +74,6 @@ enum CampaignStatus {
   SENT
   PAUSED
   CANCELLED
-}
-
-model CampaignMessage {
-  id        String   @id @default(cuid())
-  campaignId String
-  contactId String
-  status    MessageStatus @default(SENT)
-  sentAt    DateTime?
-  error     String?
-  createdAt DateTime @default(now())
-
-  campaign  Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
-
-  @@index([campaignId])
-  @@index([contactId])
-}
-
-model Automation {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  trigger     AutomationTrigger
-  conditions  Json?
-  actions     Json?
-  isActive    Boolean  @default(true)
-  tenantId    String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId])
-  @@index([trigger])
 }
 
 enum AutomationTrigger {
@@ -354,43 +86,412 @@ enum AutomationTrigger {
   TICKET_STATUS_CHANGED
 }
 
-model Webhook {
-  id          String   @id @default(cuid())
-  name        String
-  url         String
-  events      String[]
-  secret      String?
-  isActive    Boolean  @default(true)
-  tenantId    String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId])
-}
-
-model Integration {
-  id          String   @id @default(cuid())
-  type        IntegrationType
-  name        String
-  config      Json
-  isActive    Boolean  @default(true)
-  tenantId    String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId])
-  @@index([type])
-}
-
 enum IntegrationType {
   EVOLUTION_API
   WHATSAPP_BUSINESS
   SMTP
   WEBHOOK
+}
+
+enum TemplateStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+}
+
+enum IntegrationStatus {
+  ACTIVE
+  INACTIVE
+  ERROR
+  PENDING
+}
+
+model Tenant {
+  id              String    @id @default(cuid())
+  name            String
+  slug            String    @unique
+  domain          String?   @unique
+  logo            String?
+  primaryColor    String    @default("#3b82f6")
+  secondaryColor  String    @default("#1e40af")
+  accentColor     String    @default("#06b6d4")
+  fontFamily      String?   @default("Inter")
+  timezone        String    @default("UTC")
+  locale          String    @default("en")
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  users           User[]
+  contacts        Contact[]
+  conversations   Conversation[]
+  messages        Message[]
+  tickets         Ticket[]
+  ticketComments  TicketComment[]
+  groups          Group[]
+  campaigns       Campaign[]
+  automations     Automation[]
+  webhooks        Webhook[]
+  integrations    Integration[]
+  settings        Setting[]
+  auditLogs       AuditLog[]
+  templates       Template[]
+
+  @@index([slug])
+  @@index([domain])
+  @@index([isActive])
+}
+
+model User {
+  id                String     @id @default(cuid())
+  email             String
+  name              String
+  passwordHash      String
+  avatar            String?
+  role              UserRole   @default(AGENT)
+  isActive          Boolean    @default(true)
+  lastLoginAt       DateTime?
+  twoFactorEnabled  Boolean    @default(false)
+  twoFactorSecret   String?
+  backupCodes       String[]
+  tenantId          String
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  tenant            Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignedConversations Conversation[] @relation("AssignedConversations")
+  sentMessages      Message[]
+  createdTickets    Ticket[]   @relation("CreatedTickets")
+  assignedTickets   Ticket[]   @relation("AssignedTickets")
+  ticketComments    TicketComment[]
+  auditLogs         AuditLog[]
+  refreshTokens     RefreshToken[]
+  passwordResets    PasswordReset[]
+
+  @@unique([email, tenantId])
+  @@index([tenantId])
+  @@index([email])
+  @@index([isActive])
+}
+
+model Contact {
+  id                String   @id @default(cuid())
+  name              String
+  phone             String
+  email             String?
+  avatar            String?
+  tags              String[]
+  customFields      Json?
+  tenantId          String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversations     Conversation[]
+  messages          Message[]
+  groupMembers      GroupMember[]
+  campaignMessages  CampaignMessage[]
+  campaignLogs      CampaignLog[]
+  tickets           Ticket[]
+
+  @@unique([phone, tenantId])
+  @@index([tenantId])
+  @@index([phone])
+  @@index([name])
+  @@index([tags])
+}
+
+model Conversation {
+  id              String             @id @default(cuid())
+  contactId       String
+  tenantId        String
+  status          ConversationStatus @default(OPEN)
+  priority        Priority           @default(NORMAL)
+  assignedToId    String?
+  lastMessageAt   DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  contact         Contact            @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tenant          Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignedTo      User?              @relation("AssignedConversations", fields: [assignedToId], references: [id], onDelete: SetNull)
+  messages        Message[]
+  tickets         Ticket[]
+
+  @@index([tenantId])
+  @@index([contactId])
+  @@index([status])
+  @@index([assignedToId])
+  @@index([lastMessageAt])
+}
+
+model Message {
+  id            String         @id @default(cuid())
+  conversationId String
+  contactId     String
+  tenantId      String
+  userId        String?
+  content       String
+  type          MessageType    @default(TEXT)
+  mediaUrl      String?
+  mediaType     String?
+  direction     MessageDirection
+  status        MessageStatus  @default(SENT)
+  externalId    String?
+  templateId    String?
+  template      Template?      @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  metadata      Json?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  conversation  Conversation   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  contact       Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user          User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  campaignLogs  CampaignLog[]
+  campaignMessages CampaignMessage[]
+
+  @@index([tenantId])
+  @@index([conversationId])
+  @@index([contactId])
+  @@index([externalId])
+  @@index([templateId])
+}
+
+model Ticket {
+  id            String       @id @default(cuid())
+  title         String
+  description   String?
+  status        TicketStatus @default(OPEN)
+  priority      Priority     @default(NORMAL)
+  contactId     String
+  tenantId      String
+  assignedToId  String?
+  createdById   String
+  conversationId String?
+  dueDate       DateTime?
+  resolvedAt    DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  contact       Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignedTo    User?        @relation("AssignedTickets", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdBy     User         @relation("CreatedTickets", fields: [createdById], references: [id], onDelete: Cascade)
+  conversation  Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  comments      TicketComment[]
+
+  @@index([tenantId])
+  @@index([contactId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([conversationId])
+}
+
+model TicketComment {
+  id        String   @id @default(cuid())
+  content   String
+  ticketId  String
+  userId    String
+  tenantId  String
+  isInternal Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([userId])
+  @@index([tenantId])
+}
+
+model Group {
+  id        String   @id @default(cuid())
+  name      String
+  description String?
+  tenantId  String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  members   GroupMember[]
+  campaigns Campaign[]
+
+  @@index([tenantId])
+  @@index([isActive])
+}
+
+model GroupMember {
+  id        String     @id @default(cuid())
+  groupId   String
+  contactId String
+  role      GroupRole  @default(MEMBER)
+  joinedAt  DateTime   @default(now())
+
+  group     Group      @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  contact   Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, contactId])
+  @@index([groupId])
+  @@index([contactId])
+}
+
+model Campaign {
+  id              String           @id @default(cuid())
+  name            String
+  description     String?
+  templateId      String?
+  groupId         String?
+  tenantId        String
+  status          CampaignStatus   @default(DRAFT)
+  scheduledAt     DateTime?
+  sentAt          DateTime?
+  completedAt     DateTime?
+  totalRecipients Int              @default(0)
+  totalContacts   Int              @default(0)
+  sentCount       Int              @default(0)
+  failedCount     Int              @default(0)
+  variables       Json?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  group           Group?           @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  template        Template?        @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  messages        CampaignMessage[]
+  logs            CampaignLog[]
+
+  @@index([tenantId])
+  @@index([groupId])
+  @@index([status])
+  @@index([templateId])
+}
+
+model CampaignMessage {
+  id          String             @id @default(cuid())
+  campaignId  String
+  contactId   String
+  messageId   String?
+  status      MessageStatus      @default(SENT)
+  error       String?
+  sentAt      DateTime?
+  createdAt   DateTime           @default(now())
+
+  campaign    Campaign           @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contact     Contact            @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  message     Message?           @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  @@index([campaignId])
+  @@index([contactId])
+  @@index([status])
+}
+
+model CampaignLog {
+  id          String           @id @default(cuid())
+  campaignId  String
+  contactId   String
+  status      MessageStatus    @default(SENT)
+  messageId   String?
+  error       String?
+  sentAt      DateTime?
+  createdAt   DateTime         @default(now())
+
+  campaign    Campaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contact     Contact          @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  message     Message?         @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  @@index([campaignId])
+  @@index([contactId])
+  @@index([status])
+}
+
+model Automation {
+  id          String              @id @default(cuid())
+  name        String
+  description String?
+  trigger     AutomationTrigger
+  conditions  Json?
+  actions     Json?
+  isActive    Boolean             @default(true)
+  tenantId    String
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  executions  AutomationExecution[]
+
+  @@index([tenantId])
+  @@index([trigger])
+  @@index([isActive])
+}
+
+model AutomationExecution {
+  id            String             @id @default(cuid())
+  automationId  String
+  trigger       AutomationTrigger
+  triggerData   Json?
+  status        String             @default("RUNNING")
+  error         String?
+  startedAt     DateTime           @default(now())
+  completedAt   DateTime?
+
+  automation    Automation         @relation(fields: [automationId], references: [id], onDelete: Cascade)
+
+  @@index([automationId])
+  @@index([status])
+}
+
+model Webhook {
+  id        String   @id @default(cuid())
+  name      String
+  url       String
+  events    String[]
+  secret    String?
+  isActive  Boolean  @default(true)
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([isActive])
+}
+
+model Integration {
+  id        String           @id @default(cuid())
+  type      IntegrationType
+  name      String
+  config    Json
+  status    IntegrationStatus @default(PENDING)
+  isActive  Boolean          @default(true)
+  tenantId  String
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([type])
+  @@index([isActive])
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String
+  value     Json
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([key, tenantId])
+  @@index([tenantId])
 }
 
 model AuditLog {
@@ -410,23 +511,11 @@ model AuditLog {
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
-  @@index([entityType, entityId])
+  @@index([action])
+  @@index([entityType])
+  @@index([entityId])
   @@index([userId])
   @@index([createdAt])
-}
-
-model Setting {
-  id        String   @id @default(cuid())
-  key       String
-  value     Json
-  tenantId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@unique([key, tenantId])
-  @@index([tenantId])
 }
 
 model RefreshToken {
@@ -474,46 +563,4 @@ model Template {
   @@index([tenantId])
   @@index([status])
   @@index([category])
-}
-
-model CampaignLog {
-  id        String        @id @default(cuid())
-  campaignId String
-  contactId String
-  status    MessageStatus @default(SENT)
-  messageId String?
-  error     String?
-  sentAt    DateTime?
-  createdAt DateTime      @default(now())
-
-  campaign  Campaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  contact   Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  message   Message?      @relation(fields: [messageId], references: [id], onDelete: SetNull)
-
-  @@index([campaignId])
-  @@index([contactId])
-  @@index([status])
-}
-
-model AutomationExecution {
-  id             String             @id @default(cuid())
-  automationId   String
-  trigger        AutomationTrigger
-  triggerData    Json?
-  status         String             @default("RUNNING")
-  error          String?
-  startedAt      DateTime           @default(now())
-  completedAt    DateTime?
-
-  automation     Automation         @relation(fields: [automationId], references: [id], onDelete: Cascade)
-
-  @@index([automationId])
-  @@index([status])
-}
-
-enum TemplateStatus {
-  DRAFT
-  PENDING_APPROVAL
-  APPROVED
-  REJECTED
 }

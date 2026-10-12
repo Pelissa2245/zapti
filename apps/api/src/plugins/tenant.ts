@@ -2,6 +2,22 @@ import { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { config } from '@zapti/shared/config';
 import { JWTPayload } from '@zapti/shared/auth';
 
+// Extended tenant type with timezone and locale
+interface TenantWithMeta {
+  id: string;
+  name: string;
+  isActive: boolean;
+  slug: string;
+  domain: string | null;
+  logo: string | null;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  fontFamily: string | null;
+  timezone: string;
+  locale: string;
+}
+
 const tenantPlugin: FastifyPluginAsync = async (app) => {
   const cfg = config();
 
@@ -81,7 +97,9 @@ const tenantPlugin: FastifyPluginAsync = async (app) => {
       secondaryColor: tenant.secondaryColor,
       accentColor: tenant.accentColor,
       fontFamily: tenant.fontFamily,
-    };
+      timezone: tenant.timezone ?? 'UTC',
+      locale: tenant.locale ?? 'en',
+    } satisfies TenantWithMeta;
   });
 
   // Decorate with tenant helper

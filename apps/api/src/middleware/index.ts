@@ -5,6 +5,22 @@ import { ERROR_CODES } from '@zapti/shared/constants';
 import { JWTPayload, verifyToken } from '@zapti/shared/auth';
 import crypto from 'crypto';
 
+// Extended tenant type with timezone and locale
+interface TenantWithMeta {
+  id: string;
+  name: string;
+  isActive: boolean;
+  slug: string;
+  domain: string | null;
+  logo: string | null;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  fontFamily: string | null;
+  timezone: string;
+  locale: string;
+}
+
 export function registerMiddleware(app: FastifyInstance): void {
   // Request ID
   app.addHook('onRequest', async (request, reply) => {
@@ -64,7 +80,9 @@ export function registerMiddleware(app: FastifyInstance): void {
       secondaryColor: tenant.secondaryColor,
       accentColor: tenant.accentColor,
       fontFamily: tenant.fontFamily,
-    };
+      timezone: tenant.timezone ?? 'UTC',
+      locale: tenant.locale ?? 'en',
+    } satisfies TenantWithMeta;
   });
 
   // Authentication - handled by auth plugin
@@ -137,9 +155,10 @@ export function registerMiddleware(app: FastifyInstance): void {
       request.user = {
         sub: user.id,
         email: user.email,
+        name: user.name,
         role: user.role,
         tenantId: user.tenantId,
-      };
+      } as JWTPayload;
     } catch (error) {
       return reply.status(401).send({
         success: false,

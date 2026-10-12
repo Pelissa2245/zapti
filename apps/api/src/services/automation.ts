@@ -1,4 +1,4 @@
-import { PrismaClient, AutomationTrigger } from '@prisma/client';
+import { PrismaClient, AutomationTrigger } from '@zapti/database';
 
 const prisma = new PrismaClient();
 
@@ -223,6 +223,7 @@ async function executeCreateTicket(config: any, context: AutomationContext): Pro
       description: description || '',
       priority: priority || 'NORMAL',
       conversationId: conversation.id,
+      contactId: conversation.contactId,
       assignedToId,
       createdById: context.triggerData.userId || conversation.contactId,
     },

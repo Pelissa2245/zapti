@@ -33,7 +33,7 @@ export async function userRoutes(fastify: FastifyInstance): Promise<void> {
     const { page, limit, sortBy, sortOrder, q, role, isActive } = request.query;
     const skip = (page - 1) * limit;
 
-    const where: any = { tenantId: request.tenant.id };
+    const where: any = { tenantId: request.tenant!.id };
     if (role) where.role = role;
     if (isActive !== undefined) where.isActive = isActive;
 
@@ -88,7 +88,7 @@ export async function userRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     const user = await prisma.user.findFirst({
-      where: { id: request.params.id, tenantId: request.tenant.id },
+      where: { id: request.params.id, tenantId: request.tenant!.id },
       select: {
         id: true,
         email: true,
@@ -125,7 +125,7 @@ export async function userRoutes(fastify: FastifyInstance): Promise<void> {
         isActive: z.boolean().optional(),
       }),
     },
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
+  }, async (request, reply) => {
     if (!request.user) {
       return reply.status(401).send({
         success: false,
@@ -144,7 +144,7 @@ export async function userRoutes(fastify: FastifyInstance): Promise<void> {
 
     // Check if user already exists
     const existingUser = await prisma.user.findFirst({
-      where: { tenantId: request.tenant.id, email },
+      where: { tenantId: request.tenant!.id, email },
     });
 
     if (existingUser) {
@@ -159,7 +159,7 @@ export async function userRoutes(fastify: FastifyInstance): Promise<void> {
 
     const user = await prisma.user.create({
       data: {
-        tenantId: request.tenant.id,
+        tenantId: request.tenant!.id,
         email,
         name,
         password: hashedPassword,
@@ -180,7 +180,7 @@ export async function userRoutes(fastify: FastifyInstance): Promise<void> {
     // Audit log
     await prisma.auditLog.create({
       data: {
-        tenantId: request.tenant.id,
+        tenantId: request.tenant!.id,
         userId: request.user.sub,
         action: 'USER_CREATE',
         entityType: 'User',
@@ -206,7 +206,7 @@ export async function userRoutes(fastify: FastifyInstance): Promise<void> {
         newPassword: z.string().min(8).optional(),
       }),
     },
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
+  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
     if (!request.user) {
       return reply.status(401).send({
         success: false,
@@ -225,7 +225,7 @@ export async function userRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     const user = await prisma.user.findFirst({
-      where: { id: request.params.id, tenantId: request.tenant.id },
+      where: { id: request.params.id, tenantId: request.tenant!.id },
     });
 
     if (!user) {
@@ -285,7 +285,7 @@ export async function userRoutes(fastify: FastifyInstance): Promise<void> {
     // Audit log
     await prisma.auditLog.create({
       data: {
-        tenantId: request.tenant.id,
+        tenantId: request.tenant!.id,
         userId: request.user.sub,
         action: 'USER_UPDATE',
         entityType: 'User',
@@ -325,7 +325,7 @@ export async function userRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     const user = await prisma.user.findFirst({
-      where: { id: request.params.id, tenantId: request.tenant.id },
+      where: { id: request.params.id, tenantId: request.tenant!.id },
     });
 
     if (!user) {
@@ -360,13 +360,13 @@ export async function userRoutes(fastify: FastifyInstance): Promise<void> {
     // Invalidate refresh tokens
     await prisma.user.update({
       where: { id: user.id },
-      data: { refreshToken: null },
+      data: { refreshTokens: [] },
     });
 
     // Audit log
     await prisma.auditLog.create({
       data: {
-        tenantId: request.tenant.id,
+        tenantId: request.tenant!.id,
         userId: request.user.sub,
         action: 'USER_DELETE',
         entityType: 'User',
@@ -394,7 +394,7 @@ export async function userRoutes(fastify: FastifyInstance): Promise<void> {
       });
     }
 
-    const tenantId = request.tenant.id;
+    const tenantId = request.tenant!.id;
 
     const [total, active, inactive, byRole, recentlyActive] = await Promise.all([
       prisma.user.count({ where: { tenantId } }),
