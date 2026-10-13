@@ -1,0 +1,137 @@
+---
+tipo: "community"
+comunidade: "API Bootstrap & Middleware"
+community_id: 0
+cohesion: 0
+members: 120
+tags:
+  - "graphify/community"
+  - "community/API-Bootstrap-&-Middleware"
+---
+
+# API Bootstrap & Middleware
+
+**Cohesion:** 0 - loosely connected
+**Members:** 120 nodes
+
+## Members
+- [[apps_api_src_index-api-src-index.ts]] - code - apps/api/src/index.ts
+- [[apps_api_src_app-app.ts]] - code - apps/api/src/app.ts
+- [[apps_api_src_routes_webhooks_genericwebhookroutes]] - concept - 
+- [[apps_api_src_routes_webhooks_leadcaptureroutes]] - concept - 
+- [[apps_api_src_services_automation_automationtrigger]] - concept - 
+- [[apps_api_src_services_prisma_prisma]] - concept - 
+- [[apps_api_src_routes_audit-audit.ts]] - code - apps/api/src/routes/audit.ts
+- [[apps_api_src_routes_audit_auditqueryparams-AuditQueryParams]] - code - apps/api/src/routes/audit.ts
+- [[apps_api_src_routes_audit_auditroutes-auditRoutes()]] - code - apps/api/src/routes/audit.ts
+- [[apps_api_src_routes_audit_authenticatedrequest-AuthenticatedRequest]] - code - apps/api/src/routes/audit.ts
+- [[apps_api_src_services_websocket_authenticatedsocket-AuthenticatedSocket]] - code - apps/api/src/services/websocket.ts
+- [[apps_api_src_plugins_auth_authplugin-authPlugin()]] - code - apps/api/src/plugins/auth.ts
+- [[apps_api_src_routes_automations_automationroutes-automationRoutes()]] - code - apps/api/src/routes/automations.ts
+- [[apps_api_src_routes_automations-automations.ts]] - code - apps/api/src/routes/automations.ts
+- [[apps_api_src_app_buildapp-buildApp()]] - code - apps/api/src/app.ts
+- [[apps_api_src_index_buildapp-buildApp()]] - code - apps/api/src/index.ts
+- [[apps_api_src_routes_campaigns_campaignroutes-campaignRoutes()]] - code - apps/api/src/routes/campaigns.ts
+- [[apps_api_src_routes_campaigns-campaigns.ts]] - code - apps/api/src/routes/campaigns.ts
+- [[apps_api_src_routes_contacts_contactroutes-contactRoutes()]] - code - apps/api/src/routes/contacts.ts
+- [[apps_api_src_routes_contacts-contacts.ts]] - code - apps/api/src/routes/contacts.ts
+- [[apps_api_src_routes_conversations_conversationroutes-conversationRoutes()]] - code - apps/api/src/routes/conversations.ts
+- [[apps_api_src_routes_conversations-conversations.ts]] - code - apps/api/src/routes/conversations.ts
+- [[apps_api_src_plugins_cors-cors.ts]] - code - apps/api/src/plugins/cors.ts
+- [[apps_api_src_plugins_cors_corsplugin-corsPlugin()]] - code - apps/api/src/plugins/cors.ts
+- [[apps_api_src_middleware_errorhandler-errorHandler.ts]] - code - apps/api/src/middleware/errorHandler.ts
+- [[apps_api_src_middleware_errorhandler_errorhandler-errorHandler()]] - code - apps/api/src/middleware/errorHandler.ts
+- [[apps_api_src_routes_webhooks_evolutionwebhookroutes-evolutionWebhookRoutes()]] - code - apps/api/src/routes/webhooks.ts
+- [[ref_fastify-fastify]] - concept - apps/api/package.json
+- [[apps_api_src_routes_automations_getactionconfigschema-getActionConfigSchema()]] - code - apps/api/src/routes/automations.ts
+- [[apps_api_src_routes_automations_getactiondescription-getActionDescription()]] - code - apps/api/src/routes/automations.ts
+- [[apps_api_src_routes_integrations_getintegrationconfigschema-getIntegrationConfigSchema()]] - code - apps/api/src/routes/integrations.ts
+- [[apps_api_src_routes_integrations_getintegrationdescription-getIntegrationDescription()]] - code - apps/api/src/routes/integrations.ts
+- [[apps_api_src_services_websocket_getio-getIO()]] - code - apps/api/src/services/websocket.ts
+- [[apps_api_src_routes_automations_gettriggerdescription-getTriggerDescription()]] - code - apps/api/src/routes/automations.ts
+- [[apps_api_src_routes_groups_grouproutes-groupRoutes()]] - code - apps/api/src/routes/groups.ts
+- [[apps_api_src_routes_groups-groups.ts]] - code - apps/api/src/routes/groups.ts
+- [[apps_api_src_routes_health_healthroutes-healthRoutes()]] - code - apps/api/src/routes/health.ts
+- [[apps_api_src_routes_integrations_integrationroutes-integrationRoutes()]] - code - apps/api/src/routes/integrations.ts
+- [[apps_api_src_plugins_logging-logging.ts]] - code - apps/api/src/plugins/logging.ts
+- [[apps_api_src_plugins_logging_loggingplugin-loggingPlugin()]] - code - apps/api/src/plugins/logging.ts
+- [[apps_api_src_routes_messages_messageroutes-messageRoutes()]] - code - apps/api/src/routes/messages.ts
+- [[apps_api_src_routes_messages-messages.ts]] - code - apps/api/src/routes/messages.ts
+- [[apps_api_src_middleware_index-middleware-index.ts]] - code - apps/api/src/middleware/index.ts
+- [[apps_api_src_plugins_multipart-multipart.ts]] - code - apps/api/src/plugins/multipart.ts
+- [[apps_api_src_plugins_multipart_multipartplugin-multipartPlugin()]] - code - apps/api/src/plugins/multipart.ts
+- [[packages_database_dist_index_prisma]] - concept - 
+- [[packages_shared_dist_auth_index]] - concept - 
+- [[packages_shared_dist_auth_index_jwtpayload]] - concept - 
+- [[packages_shared_dist_auth_index_verifytoken]] - concept - 
+- [[packages_shared_dist_config_index]] - concept - 
+- [[packages_shared_dist_config_index_config]] - concept - 
+- [[packages_shared_dist_constants_index]] - concept - 
+- [[packages_shared_dist_constants_index_automation_action]] - concept - 
+- [[packages_shared_dist_constants_index_automation_trigger]] - concept - 
+- [[packages_shared_dist_constants_index_campaign_status]] - concept - 
+- [[packages_shared_dist_constants_index_contact_source]] - concept - 
+- [[packages_shared_dist_constants_index_contact_status]] - concept - 
+- [[packages_shared_dist_constants_index_conversation_priority]] - concept - 
+- [[packages_shared_dist_constants_index_conversation_status]] - concept - 
+- [[packages_shared_dist_constants_index_error_codes]] - concept - 
+- [[packages_shared_dist_constants_index_integration_status]] - concept - 
+- [[packages_shared_dist_constants_index_integration_type]] - concept - 
+- [[packages_shared_dist_constants_index_message_direction]] - concept - 
+- [[packages_shared_dist_constants_index_message_status]] - concept - 
+- [[packages_shared_dist_constants_index_message_type]] - concept - 
+- [[packages_shared_dist_constants_index_setting_keys]] - concept - 
+- [[packages_shared_dist_constants_index_template_status]] - concept - 
+- [[packages_shared_dist_constants_index_ticket_priority]] - concept - 
+- [[packages_shared_dist_constants_index_ticket_status]] - concept - 
+- [[packages_shared_dist_constants_index_user_roles]] - concept - 
+- [[packages_shared_dist_constants_index_webhook_events]] - concept - 
+- [[packages_shared_dist_constants_index_websocket_events]] - concept - 
+- [[packages_shared_dist_notification_index]] - concept - 
+- [[packages_shared_dist_notification_index_broadcasttowebsocket]] - concept - 
+- [[packages_shared_dist_validation_index]] - concept - 
+- [[packages_shared_dist_validation_index_idparamschema]] - concept - 
+- [[packages_shared_dist_validation_index_paginationqueryschema]] - concept - 
+- [[packages_shared_dist_validation_index_searchqueryschema]] - concept - 
+- [[packages_shared_dist_validation_index_updatesettingsschema]] - concept - 
+- [[apps_api_src_plugins_auth-plugins-auth.ts]] - code - apps/api/src/plugins/auth.ts
+- [[apps_api_src_services_prisma-prisma.ts]] - code - apps/api/src/services/prisma.ts
+- [[apps_api_src_services_whatsapp_processwhatsappwebhook-processWhatsAppWebhook()]] - code - apps/api/src/services/whatsapp.ts
+- [[apps_api_src_plugins_ratelimit-rateLimit.ts]] - code - apps/api/src/plugins/rateLimit.ts
+- [[apps_api_src_plugins_ratelimit_ratelimitplugin-rateLimitPlugin()]] - code - apps/api/src/plugins/rateLimit.ts
+- [[ref_dotenv]] - concept - 
+- [[ref_fastify_plugin]] - concept - 
+- [[ref_zod]] - concept - 
+- [[apps_api_src_middleware_index_registermiddleware-registerMiddleware()]] - code - apps/api/src/middleware/index.ts
+- [[apps_api_src_routes_webhooks_registerwebhookroutes-registerWebhookRoutes()]] - code - apps/api/src/routes/webhooks.ts
+- [[apps_api_src_routes_health-routes-health.ts]] - code - apps/api/src/routes/health.ts
+- [[apps_api_src_routes_index-routes-index.ts]] - code - apps/api/src/routes/index.ts
+- [[apps_api_src_routes_integrations-routes-integrations.ts]] - code - apps/api/src/routes/integrations.ts
+- [[apps_api_src_routes_integrations_sanitizeconfig-sanitizeConfig()]] - code - apps/api/src/routes/integrations.ts
+- [[apps_api_src_routes_settings_settingroutes-settingRoutes()]] - code - apps/api/src/routes/settings.ts
+- [[apps_api_src_routes_settings-settings.ts]] - code - apps/api/src/routes/settings.ts
+- [[apps_api_src_utils_health_setuphealthcheck-setupHealthCheck()]] - code - apps/api/src/utils/health.ts
+- [[apps_api_src_services_websocket_setupwebsocket-setupWebSocket()]] - code - apps/api/src/services/websocket.ts
+- [[apps_api_src_app_start-start()]] - code - apps/api/src/app.ts
+- [[apps_api_src_index_start-start()]] - code - apps/api/src/index.ts
+- [[apps_api_src_plugins_swagger-swagger.ts]] - code - apps/api/src/plugins/swagger.ts
+- [[apps_api_src_plugins_swagger_swaggerplugin-swaggerPlugin()]] - code - apps/api/src/plugins/swagger.ts
+- [[apps_api_src_routes_templates_templateroutes-templateRoutes()]] - code - apps/api/src/routes/templates.ts
+- [[apps_api_src_routes_templates-templates.ts]] - code - apps/api/src/routes/templates.ts
+- [[apps_api_src_plugins_tenant-tenant.ts]] - code - apps/api/src/plugins/tenant.ts
+- [[apps_api_src_plugins_tenant_tenantplugin-tenantPlugin()]] - code - apps/api/src/plugins/tenant.ts
+- [[apps_api_src_routes_tenants_tenantroutes-tenantRoutes()]] - code - apps/api/src/routes/tenants.ts
+- [[apps_api_src_routes_tenants-tenants.ts]] - code - apps/api/src/routes/tenants.ts
+- [[apps_api_src_middleware_index_tenantwithmeta-TenantWithMeta]] - code - apps/api/src/middleware/index.ts
+- [[apps_api_src_plugins_auth_tenantwithmeta-TenantWithMeta]] - code - apps/api/src/plugins/auth.ts
+- [[apps_api_src_plugins_tenant_tenantwithmeta-TenantWithMeta]] - code - apps/api/src/plugins/tenant.ts
+- [[apps_api_src_routes_tickets_ticketroutes-ticketRoutes()]] - code - apps/api/src/routes/tickets.ts
+- [[apps_api_src_routes_tickets-tickets.ts]] - code - apps/api/src/routes/tickets.ts
+- [[apps_api_src_routes_users_userroutes-userRoutes()]] - code - apps/api/src/routes/users.ts
+- [[apps_api_src_routes_users-users.ts]] - code - apps/api/src/routes/users.ts
+- [[apps_api_src_utils_health-utils-health.ts]] - code - apps/api/src/utils/health.ts
+- [[apps_api_src_routes_integrations_validateintegrationconfig-validateIntegrationConfig()]] - code - apps/api/src/routes/integrations.ts
+- [[apps_api_src_routes_webhooks_webhookroutes-webhookRoutes()]] - code - apps/api/src/routes/webhooks.ts
+- [[apps_api_src_routes_webhooks-webhooks.ts]] - code - apps/api/src/routes/webhooks.ts
+- [[apps_api_src_services_websocket-websocket.ts]] - code - apps/api/src/services/websocket.ts
+- [[apps_api_src_routes_webhooks_whatsappwebhookroutes-whatsappWebhookRoutes()]] - code - apps/api/src/routes/webhooks.ts

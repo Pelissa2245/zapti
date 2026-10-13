@@ -8,14 +8,16 @@ import { broadcastToWebsocket } from '@zapti/shared/notification';
 
 export async function groupRoutes(fastify: FastifyInstance): Promise<void> {
   // List groups
-  fastify.get('/', {
+  fastify.get<{
+    Querystring: z.infer<typeof PaginationQuerySchema> & z.infer<typeof SearchQuerySchema> & { isActive?: boolean }
+  }>('/', {
     preHandler: [fastify.authenticate],
     schema: {
       querystring: PaginationQuerySchema.merge(SearchQuerySchema).extend({
         isActive: z.boolean().optional(),
       }),
     },
-  }, async (request: FastifyRequest<{ Querystring: any }>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     const { page, limit, sortBy, sortOrder, q, isActive } = request.query;
     const skip = (page - 1) * limit;
 

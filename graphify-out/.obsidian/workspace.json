@@ -181,18 +181,22 @@
       "bases:Create new base": false
     }
   },
-  "active": "7cad9339c90b7f27",
+  "active": "0fd425670fdae24d",
   "lastOpenFiles": [
+    "Untitled.md",
+    "graph.html",
+    "OBSIDIAN_SETUP.md",
+    "obsidian-graph.canvas",
+    "zapti-graph-plugin/manifest.json",
+    "zapti-graph-plugin/manifest.json.tmp.15204.b327407a3999",
+    "zapti-graph-plugin/main.js",
+    "zapti-graph-plugin/main.js.tmp.15204.7a36f90832a5",
+    "zapti-graph-plugin",
+    "build_obsidian_graph.py.tmp.15204.a59717134826",
+    "build_obsidian_graph.py.tmp.15204.9b85ef955a09",
+    "obsidian-graph.html",
+    "build_obsidian_graph.py.tmp.15204.6a52aba2021d",
     "GRAPH_REPORT.md",
-    "cache/semantic/pd5fd89c46bb5",
-    "cache/semantic",
-    "cache/ast/v0.9.86-s8-g0fcafffe3c00/abe9aebd753a447662a175bb9c61bb815d83d7ad053e9d515300f65e2e2bcee9.json",
-    "cache/ast/v0.9.86-s8-g0fcafffe3c00/7b04341a79e3bd6d05debbb3c9dd30e61ab4d15c170ecf3cfc0e40e1dab6fc60.json",
-    "cache/ast/v0.9.86-s8-g0fcafffe3c00/517ae95cfbf9dd82f0f8d27fa6cbf0c1746458043e074b6dbf8444d6e06dae59.json",
-    "cache/ast/v0.9.86-s8-g0fcafffe3c00/908e2886758e04e6007b35e01b61193eeca6637ea6fec3a874bbb4ad65f87c3d.json",
-    "cache/ast/v0.9.86-s8-g0fcafffe3c00/b3e5f43ce61c3f0c987766622b0370baa5352f8e6e33fb3f903e93cc042f4d2b.json",
-    "cache/ast/v0.9.86-s8-g0fcafffe3c00/27668d671a3a812d3c89b968496e9bd771302a67703bd247aa8c050c3c470f6d.json",
-    "cache/ast/v0.9.86-s8-g0fcafffe3c00/24eee60a74bec53bad652ba7b4e8a54db184d49516a5cbd90b9b49bb26afcdd1.json",
-    "cache/ast/v0.9.86-s8-g0fcafffe3c00/49947755d616164a1678279a9e5a210759845b1d147ad3aa89219d85c431d76b.json"
+    "Problemas-e-Solucoes.md"
   ]
 }

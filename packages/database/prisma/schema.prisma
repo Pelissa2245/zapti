@@ -161,6 +161,7 @@ model User {
 
   tenant            Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   assignedConversations Conversation[] @relation("AssignedConversations")
+  closedConversations   Conversation[] @relation("ClosedConversations")
   sentMessages      Message[]
   createdTickets    Ticket[]   @relation("CreatedTickets")
   assignedTickets   Ticket[]   @relation("AssignedTickets")
@@ -191,6 +192,7 @@ model Contact {
   conversations     Conversation[]
   messages          Message[]
   groupMembers      GroupMember[]
+  groups            Group[]
   campaignMessages  CampaignMessage[]
   campaignLogs      CampaignLog[]
   tickets           Ticket[]
@@ -210,12 +212,18 @@ model Conversation {
   priority        Priority           @default(NORMAL)
   assignedToId    String?
   lastMessageAt   DateTime?
+  subject         String?
+  tags            String[]           @default([])
+  closedAt        DateTime?
+  closedById      String?
+  resolution      String?
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
   contact         Contact            @relation(fields: [contactId], references: [id], onDelete: Cascade)
   tenant          Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   assignedTo      User?              @relation("AssignedConversations", fields: [assignedToId], references: [id], onDelete: SetNull)
+  closedBy        User?              @relation("ClosedConversations", fields: [closedById], references: [id], onDelete: SetNull)
   messages        Message[]
   tickets         Ticket[]
 
@@ -224,6 +232,7 @@ model Conversation {
   @@index([status])
   @@index([assignedToId])
   @@index([lastMessageAt])
+  @@index([closedAt])
 }
 
 model Message {
@@ -317,8 +326,9 @@ model Group {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   members   GroupMember[]
+  contacts  Contact[]
   campaigns Campaign[]
 
   @@index([tenantId])

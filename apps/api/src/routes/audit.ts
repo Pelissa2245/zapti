@@ -1,45 +1,35 @@
-import { FastifyInstance, FastifyRequest, FastifyReply, RouteGenericInterface } from 'fastify';
+import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../services/prisma';
-import { ERROR_CODES, USER_ROLES } from '@zapti/shared/constants';
-import { PaginationQuerySchema, IdParamSchema } from '@zapti/shared/validation';
-import { JWTPayload } from '@zapti/shared/auth';
+import { ERROR_CODES } from '@zapti/shared/constants';
+import { PaginationQuerySchema, IdParamSchema, SearchQuerySchema } from '@zapti/shared/validation';
 
-interface AuditQueryParams {
-  page: number;
-  limit: number;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-  userId?: string;
-  action?: string;
-  entityType?: string;
-  entityId?: string;
-  startDate?: string;
-  endDate?: string;
-}
+const AuditQuerySchema = PaginationQuerySchema.merge(SearchQuerySchema).extend({
+  userId: z.string().cuid().optional(),
+  action: z.string().optional(),
+  entityType: z.string().optional(),
+  entityId: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+});
 
-interface AuthenticatedRequest<RouteGeneric extends RouteGenericInterface = RouteGenericInterface> extends FastifyRequest<RouteGeneric> {
-  user: JWTPayload;
-  tenant: NonNullable<FastifyRequest['tenant']>;
-}
+type AuditQuery = z.infer<typeof AuditQuerySchema>;
 
 export async function auditRoutes(fastify: FastifyInstance): Promise<void> {
   // List audit logs
-  fastify.get<{ Querystring: AuditQueryParams }>('/', {
+  fastify.get('/', {
     preHandler: [fastify.authenticate],
     schema: {
-      querystring: PaginationQuerySchema.extend({
-        userId: z.string().cuid().optional(),
-        action: z.string().optional(),
-        entityType: z.string().optional(),
-        entityId: z.string().optional(),
-        startDate: z.string().datetime().optional(),
-        endDate: z.string().datetime().optional(),
-      }),
+      querystring: AuditQuerySchema,
     },
-  }, async (request: AuthenticatedRequest<{ Querystring: AuditQueryParams }>, reply: FastifyReply) => {
-    const user = request.user;
-    if (!['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+  }, async (request: FastifyRequest<{ Querystring: AuditQuery }>, reply) => {
+    if (!request.user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' },
+      });
+    }
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
       return reply.status(403).send({
         success: false,
         error: { code: ERROR_CODES.FORBIDDEN, message: 'Admin access required' },
@@ -67,7 +57,9 @@ export async function auditRoutes(fastify: FastifyInstance): Promise<void> {
         take: limit,
         orderBy: { [sortBy || 'createdAt']: sortOrder || 'desc' },
         include: {
-          user: { select: { id: true, name: true, email: true } },
+          user: {
+            select: { id: true, name: true, email: true },
+          },
         },
       }),
       prisma.auditLog.count({ where }),
@@ -76,17 +68,28 @@ export async function auditRoutes(fastify: FastifyInstance): Promise<void> {
     return reply.send({
       success: true,
       data: logs,
-      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
     });
   });
 
-  // Get audit log by ID
-  fastify.get<{ Params: { id: string } }>('/:id', {
+  // Get single audit log
+  fastify.get('/:id', {
     preHandler: [fastify.authenticate],
     schema: {
       params: IdParamSchema,
     },
-  }, async (request: AuthenticatedRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply) => {
+    if (!request.user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' },
+      });
+    }
     if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
       return reply.status(403).send({
         success: false,
@@ -97,7 +100,9 @@ export async function auditRoutes(fastify: FastifyInstance): Promise<void> {
     const log = await prisma.auditLog.findFirst({
       where: { id: request.params.id, tenantId: request.tenant!.id },
       include: {
-        user: { select: { id: true, name: true, email: true } },
+        user: {
+          select: { id: true, name: true, email: true },
+        },
       },
     });
 
@@ -108,13 +113,27 @@ export async function auditRoutes(fastify: FastifyInstance): Promise<void> {
       });
     }
 
-    return reply.send({ success: true, data: log });
+    return reply.send({
+      success: true,
+      data: log,
+    });
   });
 
-  // Get audit stats
-  fastify.get<{ Querystring: { tenantId?: string } }>('/stats/overview', {
+  // Get audit statistics
+  fastify.get('/stats', {
     preHandler: [fastify.authenticate],
-  }, async (request: AuthenticatedRequest<{ Querystring: { tenantId?: string } }>, reply: FastifyReply) => {
+    schema: {
+      querystring: z.object({
+        tenantId: z.string().optional(),
+      }),
+    },
+  }, async (request: FastifyRequest<{ Querystring: { tenantId?: string } }>, reply) => {
+    if (!request.user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' },
+      });
+    }
     if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
       return reply.status(403).send({
         success: false,
@@ -122,25 +141,23 @@ export async function auditRoutes(fastify: FastifyInstance): Promise<void> {
       });
     }
 
-    const [totalLogs, byAction, byEntity, recentActivity] = await Promise.all([
-      prisma.auditLog.count({ where: { tenantId: request.tenant!.id } }),
-      prisma.auditLog.groupBy({ by: ['action'], where: { tenantId: request.tenant!.id }, _count: true, orderBy: { _count: { action: 'desc' } }, take: 10 }),
-      prisma.auditLog.groupBy({ by: ['entityType'], where: { tenantId: request.tenant!.id }, _count: true, orderBy: { _count: { entityType: 'desc' } } }),
-      prisma.auditLog.findMany({
-        where: { tenantId: request.tenant.id },
-        take: 20,
-        orderBy: { createdAt: 'desc' },
-        include: { user: { select: { id: true, name: true, avatar: true } } },
-      }),
+    const tenantId = request.tenant!.id;
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const [totalLogs, recentLogs, logsByAction, logsByEntityType] = await Promise.all([
+      prisma.auditLog.count({ where: { tenantId } }),
+      prisma.auditLog.count({ where: { tenantId, createdAt: { gte: thirtyDaysAgo } } }),
+      prisma.auditLog.groupBy({ by: ['action'], where: { tenantId, createdAt: { gte: thirtyDaysAgo } }, _count: true }),
+      prisma.auditLog.groupBy({ by: ['entityType'], where: { tenantId, createdAt: { gte: thirtyDaysAgo } }, _count: true }),
     ]);
 
     return reply.send({
       success: true,
       data: {
         totalLogs,
-        byAction: byAction.reduce((acc: Record<string, number>, item: { action: string; _count: number }) => ({ ...acc, [item.action]: item._count }), {}),
-        byEntity: byEntity.reduce((acc: Record<string, number>, item: { entityType: string; _count: number }) => ({ ...acc, [item.entityType]: item._count }), {}),
-        recentActivity,
+        recentLogs,
+        logsByAction: logsByAction.map((item) => ({ action: item.action, count: item._count })),
+        logsByEntityType: logsByEntityType.map((item) => ({ entityType: item.entityType, count: item._count })),
       },
     });
   });

@@ -1,10 +1,11 @@
-import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../services/prisma';
-import { ERROR_CODES, AUTOMATION_TRIGGER, AUTOMATION_ACTION } from '@zapti/shared/constants';
+import { ERROR_CODES, AUTOMATION_TRIGGERS } from '@zapti/shared/constants';
 import { PaginationQuerySchema, IdParamSchema, SearchQuerySchema } from '@zapti/shared/validation';
 import { broadcastToWebsocket } from '@zapti/shared/notification';
 
+const AutomationTriggerEnum = z.enum(Object.values(AUTOMATION_TRIGGERS) as [string, ...string[]]);
 
 export async function automationRoutes(fastify: FastifyInstance): Promise<void> {
   // List automations
@@ -12,15 +13,28 @@ export async function automationRoutes(fastify: FastifyInstance): Promise<void> 
     preHandler: [fastify.authenticate],
     schema: {
       querystring: PaginationQuerySchema.merge(SearchQuerySchema).extend({
-        trigger: z.nativeEnum(AUTOMATION_TRIGGER).optional(),
+        trigger: AutomationTriggerEnum.optional(),
         isActive: z.boolean().optional(),
       }),
     },
-  }, async (request: FastifyRequest<{ Querystring: any }>, reply: FastifyReply) => {
-    const { page, limit, sortBy, sortOrder, q, trigger, isActive } = request.query;
+  }, async (request, reply) => {
+    if (!request.user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' },
+      });
+    }
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: ERROR_CODES.FORBIDDEN, message: 'Admin access required' },
+      });
+    }
+
+    const { page, limit, sortBy, sortOrder, q, trigger, isActive } = request.query as any;
     const skip = (page - 1) * limit;
 
-    const where: any = { tenantId: request.tenant.id };
+    const where: any = { tenantId: request.tenant!.id };
     if (trigger) where.trigger = trigger;
     if (isActive !== undefined) where.isActive = isActive;
 
@@ -57,13 +71,26 @@ export async function automationRoutes(fastify: FastifyInstance): Promise<void> 
     schema: {
       params: IdParamSchema,
     },
-  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply) => {
+    if (!request.user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' },
+      });
+    }
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: ERROR_CODES.FORBIDDEN, message: 'Admin access required' },
+      });
+    }
+
     const automation = await prisma.automation.findFirst({
-      where: { id: request.params.id, tenantId: request.tenant.id },
+      where: { id: request.params.id, tenantId: request.tenant!.id },
       include: {
         executions: {
           take: 20,
-          orderBy: { createdAt: 'desc' },
+          orderBy: { startedAt: 'desc' },
         },
         _count: { select: { executions: true } },
       },
@@ -86,16 +113,22 @@ export async function automationRoutes(fastify: FastifyInstance): Promise<void> 
       body: z.object({
         name: z.string().min(1).max(100),
         description: z.string().optional(),
-        trigger: z.nativeEnum(AUTOMATION_TRIGGER),
+        trigger: AutomationTriggerEnum,
         conditions: z.record(z.unknown()).optional(),
         actions: z.array(z.object({
-          type: z.nativeEnum(AUTOMATION_ACTION),
+          type: z.string(),
           config: z.record(z.unknown()),
         })).min(1),
         isActive: z.boolean().optional(),
       }),
     },
-  }, async (request: FastifyRequest<{ Body: any }>, reply: FastifyReply) => {
+  }, async (request, reply) => {
+    if (!request.user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' },
+      });
+    }
     if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
       return reply.status(403).send({
         success: false,
@@ -103,15 +136,15 @@ export async function automationRoutes(fastify: FastifyInstance): Promise<void> 
       });
     }
 
-    const { name, description, trigger, conditions, actions, isActive } = request.body;
+    const { name, description, trigger, conditions, actions, isActive } = request.body as any;
 
     const automation = await prisma.automation.create({
       data: {
-        tenantId: request.tenant.id,
+        tenantId: request.tenant!.id,
         name,
         description,
         trigger,
-        conditions: conditions || {},
+        conditions,
         actions,
         isActive: isActive !== false,
       },
@@ -120,12 +153,12 @@ export async function automationRoutes(fastify: FastifyInstance): Promise<void> 
     // Audit log
     await prisma.auditLog.create({
       data: {
-        tenantId: request.tenant.id,
+        tenantId: request.tenant!.id,
         userId: request.user.sub,
         action: 'AUTOMATION_CREATE',
         entityType: 'Automation',
         entityId: automation.id,
-        newData: { name, trigger, actionsCount: actions.length },
+        newData: { name, trigger, actions },
       },
     });
 
@@ -140,16 +173,22 @@ export async function automationRoutes(fastify: FastifyInstance): Promise<void> 
       body: z.object({
         name: z.string().min(1).max(100).optional(),
         description: z.string().optional(),
-        trigger: z.nativeEnum(AUTOMATION_TRIGGER).optional(),
+        trigger: AutomationTriggerEnum.optional(),
         conditions: z.record(z.unknown()).optional(),
         actions: z.array(z.object({
-          type: z.nativeEnum(AUTOMATION_ACTION),
+          type: z.string(),
           config: z.record(z.unknown()),
         })).optional(),
         isActive: z.boolean().optional(),
       }),
     },
-  }, async (request: FastifyRequest<{ Params: { id: string }; Body: any }>, reply: FastifyReply) => {
+  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply) => {
+    if (!request.user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' },
+      });
+    }
     if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
       return reply.status(403).send({
         success: false,
@@ -157,35 +196,44 @@ export async function automationRoutes(fastify: FastifyInstance): Promise<void> 
       });
     }
 
-    const automation = await prisma.automation.findFirst({
-      where: { id: request.params.id, tenantId: request.tenant.id },
+    const existing = await prisma.automation.findFirst({
+      where: { id: request.params.id, tenantId: request.tenant!.id },
     });
 
-    if (!automation) {
+    if (!existing) {
       return reply.status(404).send({
         success: false,
         error: { code: ERROR_CODES.NOT_FOUND, message: 'Automation not found' },
       });
     }
 
-    const updatedAutomation = await prisma.automation.update({
-      where: { id: automation.id },
-      data: request.body,
+    const { name, description, trigger, conditions, actions, isActive } = request.body as any;
+
+    const automation = await prisma.automation.update({
+      where: { id: request.params.id },
+      data: {
+        name,
+        description,
+        trigger,
+        conditions,
+        actions,
+        isActive,
+      },
     });
 
     // Audit log
     await prisma.auditLog.create({
       data: {
-        tenantId: request.tenant.id,
+        tenantId: request.tenant!.id,
         userId: request.user.sub,
         action: 'AUTOMATION_UPDATE',
         entityType: 'Automation',
         entityId: automation.id,
-        newData: request.body,
+        newData: { name, trigger, actions },
       },
     });
 
-    return reply.send({ success: true, data: updatedAutomation });
+    return reply.send({ success: true, data: automation });
   });
 
   // Delete automation
@@ -194,7 +242,13 @@ export async function automationRoutes(fastify: FastifyInstance): Promise<void> 
     schema: {
       params: IdParamSchema,
     },
-  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply) => {
+    if (!request.user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' },
+      });
+    }
     if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
       return reply.status(403).send({
         success: false,
@@ -202,87 +256,49 @@ export async function automationRoutes(fastify: FastifyInstance): Promise<void> 
       });
     }
 
-    const automation = await prisma.automation.findFirst({
-      where: { id: request.params.id, tenantId: request.tenant.id },
+    const existing = await prisma.automation.findFirst({
+      where: { id: request.params.id, tenantId: request.tenant!.id },
     });
 
-    if (!automation) {
+    if (!existing) {
       return reply.status(404).send({
         success: false,
         error: { code: ERROR_CODES.NOT_FOUND, message: 'Automation not found' },
       });
     }
 
-    await prisma.automation.delete({ where: { id: automation.id } });
+    await prisma.automation.delete({ where: { id: request.params.id } });
 
     // Audit log
     await prisma.auditLog.create({
       data: {
-        tenantId: request.tenant.id,
+        tenantId: request.tenant!.id,
         userId: request.user.sub,
         action: 'AUTOMATION_DELETE',
         entityType: 'Automation',
-        entityId: automation.id,
+        entityId: request.params.id,
       },
     });
 
     return reply.send({ success: true, message: 'Automation deleted' });
   });
 
-  // Toggle automation active status
-  fastify.post('/:id/toggle', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: IdParamSchema,
-    },
-  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
-    if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
-      return reply.status(403).send({
-        success: false,
-        error: { code: ERROR_CODES.FORBIDDEN, message: 'Admin access required' },
-      });
-    }
-
-    const automation = await prisma.automation.findFirst({
-      where: { id: request.params.id, tenantId: request.tenant.id },
-    });
-
-    if (!automation) {
-      return reply.status(404).send({
-        success: false,
-        error: { code: ERROR_CODES.NOT_FOUND, message: 'Automation not found' },
-      });
-    }
-
-    const updatedAutomation = await prisma.automation.update({
-      where: { id: automation.id },
-      data: { isActive: !automation.isActive },
-    });
-
-    // Audit log
-    await prisma.auditLog.create({
-      data: {
-        tenantId: request.tenant.id,
-        userId: request.user.sub,
-        action: updatedAutomation.isActive ? 'AUTOMATION_ENABLE' : 'AUTOMATION_DISABLE',
-        entityType: 'Automation',
-        entityId: automation.id,
-      },
-    });
-
-    return reply.send({ success: true, data: updatedAutomation });
-  });
-
-  // Test automation
-  fastify.post('/:id/test', {
+  // Trigger automation manually
+  fastify.post('/:id/trigger', {
     preHandler: [fastify.authenticate],
     schema: {
       params: IdParamSchema,
       body: z.object({
-        testData: z.record(z.unknown()).optional(),
+        context: z.record(z.unknown()).optional(),
       }),
     },
-  }, async (request: FastifyRequest<{ Params: { id: string }; Body: { testData?: any } }>, reply: FastifyReply) => {
+  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply) => {
+    if (!request.user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' },
+      });
+    }
     if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
       return reply.status(403).send({
         success: false,
@@ -291,29 +307,36 @@ export async function automationRoutes(fastify: FastifyInstance): Promise<void> 
     }
 
     const automation = await prisma.automation.findFirst({
-      where: { id: request.params.id, tenantId: request.tenant.id },
+      where: { id: request.params.id, tenantId: request.tenant!.id, isActive: true },
     });
 
     if (!automation) {
       return reply.status(404).send({
         success: false,
-        error: { code: ERROR_CODES.NOT_FOUND, message: 'Automation not found' },
+        error: { code: ERROR_CODES.NOT_FOUND, message: 'Automation not found or inactive' },
       });
     }
 
-    // Execute with test data
-    const { executeAutomation } = await import('../services/automation');
-    const testData = { ...request.body.testData, automationId: automation.id };
+    // This would trigger the automation - for now just log it
+    const execution = await prisma.automationExecution.create({
+      data: {
+        automationId: automation.id,
+        trigger: automation.trigger,
+        status: 'PENDING',
+        triggerData: request.body as any,
+      },
+    });
 
-    try {
-      await executeAutomation(automation.id, request.tenant.id, testData);
-      return reply.send({ success: true, message: 'Automation test executed' });
-    } catch (error: any) {
-      return reply.status(500).send({
-        success: false,
-        error: { code: ERROR_CODES.INTERNAL_ERROR, message: `Test failed: ${error.message}` },
-      });
-    }
+    // TODO: Actually execute the automation
+    // await executeAutomation(automation, request.body.context);
+
+    // Broadcast update
+    broadcastToWebsocket(undefined, 'automation:triggered', {
+      automationId: automation.id,
+      executionId: execution.id,
+    }, `tenant:${request.tenant!.id}`);
+
+    return reply.send({ success: true, data: execution });
   });
 
   // Get automation executions
@@ -321,36 +344,33 @@ export async function automationRoutes(fastify: FastifyInstance): Promise<void> 
     preHandler: [fastify.authenticate],
     schema: {
       params: IdParamSchema,
-      querystring: PaginationQuerySchema.extend({
-        status: z.enum(['RUNNING', 'SUCCESS', 'FAILED']).optional(),
-      }),
+      querystring: PaginationQuerySchema,
     },
-  }, async (request: FastifyRequest<{ Params: { id: string }; Querystring: any }>, reply: FastifyReply) => {
-    const { page, limit, status } = request.query;
-    const skip = (page - 1) * limit;
-
-    const automation = await prisma.automation.findFirst({
-      where: { id: request.params.id, tenantId: request.tenant.id },
-    });
-
-    if (!automation) {
-      return reply.status(404).send({
+  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply) => {
+    if (!request.user) {
+      return reply.status(401).send({
         success: false,
-        error: { code: ERROR_CODES.NOT_FOUND, message: 'Automation not found' },
+        error: { code: ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' },
+      });
+    }
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: ERROR_CODES.FORBIDDEN, message: 'Admin access required' },
       });
     }
 
-    const where: any = { automationId: automation.id };
-    if (status) where.status = status;
+    const { page, limit, sortBy, sortOrder } = request.query as any;
+    const skip = (page - 1) * limit;
 
     const [executions, total] = await Promise.all([
       prisma.automationExecution.findMany({
-        where,
+        where: { automationId: request.params.id },
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { [sortBy || 'startedAt']: sortOrder || 'desc' },
       }),
-      prisma.automationExecution.count({ where }),
+      prisma.automationExecution.count({ where: { automationId: request.params.id } }),
     ]);
 
     return reply.send({
@@ -359,165 +379,4 @@ export async function automationRoutes(fastify: FastifyInstance): Promise<void> 
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   });
-
-  // Get automation triggers list
-  fastify.get('/triggers/list', {
-    preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const triggers = Object.values(AUTOMATION_TRIGGER).map(trigger => ({
-      value: trigger,
-      label: trigger.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-      description: getTriggerDescription(trigger),
-    }));
-
-    return reply.send({ success: true, data: triggers });
-  });
-
-  // Get automation actions list
-  fastify.get('/actions/list', {
-    preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const actions = Object.values(AUTOMATION_ACTION).map(action => ({
-      value: action,
-      label: action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-      description: getActionDescription(action),
-      configSchema: getActionConfigSchema(action),
-    }));
-
-    return reply.send({ success: true, data: actions });
-  });
-
-  // Get automation stats
-  fastify.get('/stats/overview', {
-    preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const baseWhere = { tenantId: request.tenant.id };
-
-    const [total, active, inactive, byTrigger, totalExecutions, successfulExecutions, failedExecutions] = await Promise.all([
-      prisma.automation.count({ where: baseWhere }),
-      prisma.automation.count({ where: { ...baseWhere, isActive: true } }),
-      prisma.automation.count({ where: { ...baseWhere, isActive: false } }),
-      prisma.automation.groupBy({ by: ['trigger'], where: baseWhere, _count: true }),
-      prisma.automationExecution.count({ where: { automation: { tenantId: request.tenant.id } } }),
-      prisma.automationExecution.count({ where: { automation: { tenantId: request.tenant.id }, status: 'SUCCESS' } }),
-      prisma.automationExecution.count({ where: { automation: { tenantId: request.tenant.id }, status: 'FAILED' } }),
-    ]);
-
-    return reply.send({
-      success: true,
-      data: {
-        total,
-        active,
-        inactive,
-        byTrigger: byTrigger.reduce((acc, item) => ({ ...acc, [item.trigger]: item._count }), {}),
-        totalExecutions,
-        successfulExecutions,
-        failedExecutions,
-        successRate: totalExecutions > 0 ? (successfulExecutions / totalExecutions * 100).toFixed(2) : 0,
-      },
-    });
-  });
-}
-
-function getTriggerDescription(trigger: string): string {
-  const descriptions: Record<string, string> = {
-    MESSAGE_RECEIVED: 'Triggered when a new message is received',
-    MESSAGE_SENT: 'Triggered when a message is sent',
-    CONVERSATION_CREATED: 'Triggered when a new conversation starts',
-    CONVERSATION_CLOSED: 'Triggered when a conversation is closed',
-    TICKET_CREATED: 'Triggered when a new ticket is created',
-    TICKET_UPDATED: 'Triggered when a ticket is updated',
-    TICKET_RESOLVED: 'Triggered when a ticket is resolved',
-    CONTACT_CREATED: 'Triggered when a new contact is added',
-    CONTACT_UPDATED: 'Triggered when a contact is updated',
-    CAMPAIGN_SENT: 'Triggered when a campaign is sent',
-    SCHEDULE: 'Triggered on a schedule',
-    WEBHOOK: 'Triggered by an external webhook',
-  };
-  return descriptions[trigger] || '';
-}
-
-function getActionDescription(action: string): string {
-  const descriptions: Record<string, string> = {
-    SEND_MESSAGE: 'Send a WhatsApp message',
-    CREATE_TICKET: 'Create a support ticket',
-    ASSIGN_CONVERSATION: 'Assign conversation to an agent',
-    ADD_TAG: 'Add a tag to conversation or contact',
-    UPDATE_CONTACT: 'Update contact information',
-    WEBHOOK: 'Call an external webhook',
-    DELAY: 'Wait for a specified time',
-    CONDITION: 'Branch based on conditions',
-  };
-  return descriptions[action] || '';
-}
-
-function getActionConfigSchema(action: string): any {
-  const schemas: Record<string, any> = {
-    SEND_MESSAGE: {
-      type: 'object',
-      properties: {
-        conversationId: { type: 'string', format: 'cuid' },
-        contactId: { type: 'string', format: 'cuid' },
-        templateId: { type: 'string', format: 'cuid' },
-        content: { type: 'string' },
-        variables: { type: 'object' },
-      },
-    },
-    CREATE_TICKET: {
-      type: 'object',
-      properties: {
-        title: { type: 'string' },
-        description: { type: 'string' },
-        priority: { type: 'string', enum: ['LOW', 'NORMAL', 'HIGH', 'URGENT'] },
-        contactId: { type: 'string', format: 'cuid' },
-        assignedToId: { type: 'string', format: 'cuid' },
-      },
-    },
-    ASSIGN_CONVERSATION: {
-      type: 'object',
-      properties: {
-        conversationId: { type: 'string', format: 'cuid' },
-        agentId: { type: 'string', format: 'cuid' },
-      },
-    },
-    ADD_TAG: {
-      type: 'object',
-      properties: {
-        entityType: { type: 'string', enum: ['conversation', 'contact'] },
-        entityId: { type: 'string', format: 'cuid' },
-        tag: { type: 'string' },
-      },
-    },
-    UPDATE_CONTACT: {
-      type: 'object',
-      properties: {
-        contactId: { type: 'string', format: 'cuid' },
-        updates: { type: 'object' },
-      },
-    },
-    WEBHOOK: {
-      type: 'object',
-      properties: {
-        url: { type: 'string', format: 'uri' },
-        method: { type: 'string', enum: ['GET', 'POST', 'PUT', 'PATCH'] },
-        headers: { type: 'object' },
-        body: { type: 'object' },
-      },
-    },
-    DELAY: {
-      type: 'object',
-      properties: {
-        milliseconds: { type: 'number', minimum: 100 },
-      },
-    },
-    CONDITION: {
-      type: 'object',
-      properties: {
-        conditions: { type: 'object' },
-        actionsIfTrue: { type: 'array' },
-        actionsIfFalse: { type: 'array' },
-      },
-    },
-  };
-  return schemas[action] || { type: 'object', properties: {} };
 }

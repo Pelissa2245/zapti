@@ -1,0 +1,14 @@
+#!/bin/bash
+# Git post-merge hook: regenerate graphify and Obsidian graph
+# Install: cp graphify-out/.git-hooks/post-merge .git/hooks/post-merge && chmod +x .git/hooks/post-merge
+
+echo "🔄 Post-merge: Regenerating knowledge graph..."
+
+# Run graphify extraction (adjust path as needed)
+cd "$(git rev-parse --show-toplevel)"
+python -m graphify --root . --out graphify-out
+
+# Update Obsidian graph
+python graphify-out/build_obsidian_graph.py
+
+echo "✅ Knowledge graph updated: graphify-out/obsidian-graph.html"

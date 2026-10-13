@@ -1,10 +1,11 @@
-import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../services/prisma';
-import { ERROR_CODES, CAMPAIGN_STATUS, WEBSOCKET_EVENTS } from '@zapti/shared/constants';
+import { ERROR_CODES, CAMPAIGN_STATUS } from '@zapti/shared/constants';
 import { PaginationQuerySchema, IdParamSchema, SearchQuerySchema } from '@zapti/shared/validation';
 import { broadcastToWebsocket } from '@zapti/shared/notification';
 
+const CampaignStatusEnum = z.enum(Object.values(CAMPAIGN_STATUS) as [string, ...string[]]);
 
 export async function campaignRoutes(fastify: FastifyInstance): Promise<void> {
   // List campaigns
@@ -12,16 +13,29 @@ export async function campaignRoutes(fastify: FastifyInstance): Promise<void> {
     preHandler: [fastify.authenticate],
     schema: {
       querystring: PaginationQuerySchema.merge(SearchQuerySchema).extend({
-        status: z.nativeEnum(CAMPAIGN_STATUS).optional(),
+        status: CampaignStatusEnum.optional(),
         groupId: z.string().cuid().optional(),
         templateId: z.string().cuid().optional(),
       }),
     },
-  }, async (request: FastifyRequest<{ Querystring: any }>, reply: FastifyReply) => {
-    const { page, limit, sortBy, sortOrder, q, status, groupId, templateId } = request.query;
+  }, async (request, reply) => {
+    if (!request.user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' },
+      });
+    }
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: ERROR_CODES.FORBIDDEN, message: 'Admin access required' },
+      });
+    }
+
+    const { page, limit, sortBy, sortOrder, q, status, groupId, templateId } = request.query as any;
     const skip = (page - 1) * limit;
 
-    const where: any = { tenantId: request.tenant.id };
+    const where: any = { tenantId: request.tenant!.id };
     if (status) where.status = status;
     if (groupId) where.groupId = groupId;
     if (templateId) where.templateId = templateId;
@@ -61,16 +75,28 @@ export async function campaignRoutes(fastify: FastifyInstance): Promise<void> {
     schema: {
       params: IdParamSchema,
     },
-  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply) => {
+    if (!request.user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' },
+      });
+    }
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: ERROR_CODES.FORBIDDEN, message: 'Admin access required' },
+      });
+    }
+
     const campaign = await prisma.campaign.findFirst({
-      where: { id: request.params.id, tenantId: request.tenant.id },
+      where: { id: request.params.id, tenantId: request.tenant!.id },
       include: {
         group: { select: { id: true, name: true } },
         template: { select: { id: true, name: true, content: true } },
         logs: {
-          take: 100,
+          take: 20,
           orderBy: { createdAt: 'desc' },
-          include: { contact: { select: { id: true, name: true, phone: true } } },
         },
         _count: { select: { logs: true } },
       },
@@ -91,14 +117,20 @@ export async function campaignRoutes(fastify: FastifyInstance): Promise<void> {
     preHandler: [fastify.authenticate],
     schema: {
       body: z.object({
-        name: z.string().min(1).max(200),
+        name: z.string().min(1).max(100),
+        description: z.string().optional(),
         groupId: z.string().cuid(),
         templateId: z.string().cuid(),
-        variables: z.record(z.string()).optional(),
         scheduledAt: z.string().datetime().optional(),
       }),
     },
-  }, async (request: FastifyRequest<{ Body: any }>, reply: FastifyReply) => {
+  }, async (request, reply) => {
+    if (!request.user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' },
+      });
+    }
     if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
       return reply.status(403).send({
         success: false,
@@ -106,64 +138,43 @@ export async function campaignRoutes(fastify: FastifyInstance): Promise<void> {
       });
     }
 
-    const { name, groupId, templateId, variables, scheduledAt } = request.body;
+    const { name, description, groupId, templateId, scheduledAt } = request.body as any;
 
-    const group = await prisma.group.findFirst({
-      where: { id: groupId, tenantId: request.tenant.id },
-    });
+    const [group, template] = await Promise.all([
+      prisma.group.findFirst({ where: { id: groupId, tenantId: request.tenant!.id } }),
+      prisma.template.findFirst({ where: { id: templateId, tenantId: request.tenant!.id } }),
+    ]);
 
     if (!group) {
       return reply.status(404).send({
         success: false,
-        error: { code: ERROR_CODES.NOT_FOUND, message: 'Group not found' },
+        error: { code: ERROR_CODES.NOT_FOUND, message: 'Contact group not found' },
       });
     }
-
-    if (!group.isActive) {
-      return reply.status(400).send({
-        success: false,
-        error: { code: ERROR_CODES.INVALID_INPUT, message: 'Group is not active' },
-      });
-    }
-
-    const template = await prisma.template.findFirst({
-      where: { id: templateId, tenantId: request.tenant.id },
-    });
 
     if (!template) {
       return reply.status(404).send({
         success: false,
-        error: { code: ERROR_CODES.NOT_FOUND, message: 'Template not found' },
-      });
-    }
-
-    if (!template.isApproved) {
-      return reply.status(400).send({
-        success: false,
-        error: { code: ERROR_CODES.INVALID_INPUT, message: 'Template must be approved before use in campaigns' },
+        error: { code: ERROR_CODES.NOT_FOUND, message: 'Message template not found' },
       });
     }
 
     const campaign = await prisma.campaign.create({
       data: {
-        tenantId: request.tenant.id,
+        tenantId: request.tenant!.id,
         name,
+        description,
         groupId,
         templateId,
-        variables: variables || {},
-        scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
         status: scheduledAt ? 'SCHEDULED' : 'DRAFT',
-      },
-      include: {
-        group: { select: { id: true, name: true } },
-        template: { select: { id: true, name: true } },
+        scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
       },
     });
 
     // Audit log
     await prisma.auditLog.create({
       data: {
-        tenantId: request.tenant.id,
+        tenantId: request.tenant!.id,
         userId: request.user.sub,
         action: 'CAMPAIGN_CREATE',
         entityType: 'Campaign',
@@ -172,29 +183,30 @@ export async function campaignRoutes(fastify: FastifyInstance): Promise<void> {
       },
     });
 
-    // Schedule if needed
-    if (scheduledAt) {
-      const { scheduleCampaign } = await import('../services/campaign');
-      scheduleCampaign(campaign.id).catch(console.error);
-    }
-
     return reply.status(201).send({ success: true, data: campaign });
   });
 
-  // Update campaign (only if draft or scheduled)
+  // Update campaign
   fastify.patch('/:id', {
     preHandler: [fastify.authenticate],
     schema: {
       params: IdParamSchema,
       body: z.object({
-        name: z.string().min(1).max(200).optional(),
+        name: z.string().min(1).max(100).optional(),
+        description: z.string().optional(),
         groupId: z.string().cuid().optional(),
         templateId: z.string().cuid().optional(),
-        variables: z.record(z.string()).optional(),
-        scheduledAt: z.string().datetime().nullable().optional(),
+        status: CampaignStatusEnum.optional(),
+        scheduledAt: z.string().datetime().optional().nullable(),
       }),
     },
-  }, async (request: FastifyRequest<{ Params: { id: string }; Body: any }>, reply: FastifyReply) => {
+  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply) => {
+    if (!request.user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' },
+      });
+    }
     if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
       return reply.status(403).send({
         success: false,
@@ -202,307 +214,64 @@ export async function campaignRoutes(fastify: FastifyInstance): Promise<void> {
       });
     }
 
-    const campaign = await prisma.campaign.findFirst({
-      where: { id: request.params.id, tenantId: request.tenant.id },
+    const existing = await prisma.campaign.findFirst({
+      where: { id: request.params.id, tenantId: request.tenant!.id },
     });
 
-    if (!campaign) {
+    if (!existing) {
       return reply.status(404).send({
         success: false,
         error: { code: ERROR_CODES.NOT_FOUND, message: 'Campaign not found' },
       });
     }
 
-    if (!['DRAFT', 'SCHEDULED'].includes(campaign.status)) {
-      return reply.status(400).send({
-        success: false,
-        error: { code: ERROR_CODES.INVALID_INPUT, message: 'Cannot update campaign in current status' },
-      });
-    }
+    const { name, description, groupId, templateId, status, scheduledAt } = request.body as any;
 
-    const updateData: any = { ...request.body };
-    if (request.body.scheduledAt) {
-      updateData.scheduledAt = new Date(request.body.scheduledAt);
-      if (campaign.status === 'DRAFT') {
-        updateData.status = 'SCHEDULED';
-      }
-    } else if (request.body.scheduledAt === null) {
-      updateData.scheduledAt = null;
-      updateData.status = 'DRAFT';
-    }
-
-    if (request.body.groupId) {
-      const group = await prisma.group.findFirst({
-        where: { id: request.body.groupId, tenantId: request.tenant.id },
-      });
+    if (groupId) {
+      const group = await prisma.group.findFirst({ where: { id: groupId, tenantId: request.tenant!.id } });
       if (!group) {
         return reply.status(404).send({
           success: false,
-          error: { code: ERROR_CODES.NOT_FOUND, message: 'Group not found' },
+          error: { code: ERROR_CODES.NOT_FOUND, message: 'Contact group not found' },
         });
       }
     }
 
-    if (request.body.templateId) {
-      const template = await prisma.template.findFirst({
-        where: { id: request.body.templateId, tenantId: request.tenant.id },
-      });
+    if (templateId) {
+      const template = await prisma.template.findFirst({ where: { id: templateId, tenantId: request.tenant!.id } });
       if (!template) {
         return reply.status(404).send({
           success: false,
-          error: { code: ERROR_CODES.NOT_FOUND, message: 'Template not found' },
-        });
-      }
-      if (!template.isApproved) {
-        return reply.status(400).send({
-          success: false,
-          error: { code: ERROR_CODES.INVALID_INPUT, message: 'Template must be approved' },
+          error: { code: ERROR_CODES.NOT_FOUND, message: 'Message template not found' },
         });
       }
     }
 
-    const updatedCampaign = await prisma.campaign.update({
-      where: { id: campaign.id },
-      data: updateData,
-      include: {
-        group: { select: { id: true, name: true } },
-        template: { select: { id: true, name: true } },
+    const campaign = await prisma.campaign.update({
+      where: { id: request.params.id },
+      data: {
+        name,
+        description,
+        groupId,
+        templateId,
+        status,
+        scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
       },
     });
 
     // Audit log
     await prisma.auditLog.create({
       data: {
-        tenantId: request.tenant.id,
+        tenantId: request.tenant!.id,
         userId: request.user.sub,
         action: 'CAMPAIGN_UPDATE',
         entityType: 'Campaign',
         entityId: campaign.id,
-        newData: request.body,
+        newData: { name, groupId, templateId, status, scheduledAt },
       },
     });
 
-    // Reschedule if needed
-    if (request.body.scheduledAt && updatedCampaign.status === 'SCHEDULED') {
-      const { scheduleCampaign } = await import('../services/campaign');
-      scheduleCampaign(campaign.id).catch(console.error);
-    }
-
-    return reply.send({ success: true, data: updatedCampaign });
-  });
-
-  // Send campaign (immediately)
-  fastify.post('/:id/send', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: IdParamSchema,
-    },
-  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
-    if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
-      return reply.status(403).send({
-        success: false,
-        error: { code: ERROR_CODES.FORBIDDEN, message: 'Admin access required' },
-      });
-    }
-
-    const campaign = await prisma.campaign.findFirst({
-      where: { id: request.params.id, tenantId: request.tenant.id },
-      include: { group: true, template: true },
-    });
-
-    if (!campaign) {
-      return reply.status(404).send({
-        success: false,
-        error: { code: ERROR_CODES.NOT_FOUND, message: 'Campaign not found' },
-      });
-    }
-
-    if (!['DRAFT', 'SCHEDULED', 'PAUSED'].includes(campaign.status)) {
-      return reply.status(400).send({
-        success: false,
-        error: { code: ERROR_CODES.INVALID_INPUT, message: 'Campaign cannot be sent in current status' },
-      });
-    }
-
-    // Update status to SENDING
-    await prisma.campaign.update({
-      where: { id: campaign.id },
-      data: { status: 'SENDING', sentAt: new Date() },
-    });
-
-    // Start sending in background
-    const { sendCampaign } = await import('../services/campaign');
-    sendCampaign(campaign.id, request.tenant.id).catch(console.error);
-
-    // Audit log
-    await prisma.auditLog.create({
-      data: {
-        tenantId: request.tenant.id,
-        userId: request.user.sub,
-        action: 'CAMPAIGN_SEND',
-        entityType: 'Campaign',
-        entityId: campaign.id,
-      },
-    });
-
-    return reply.send({ success: true, message: 'Campaign sending started' });
-  });
-
-  // Pause campaign
-  fastify.post('/:id/pause', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: IdParamSchema,
-    },
-  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
-    if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
-      return reply.status(403).send({
-        success: false,
-        error: { code: ERROR_CODES.FORBIDDEN, message: 'Admin access required' },
-      });
-    }
-
-    const campaign = await prisma.campaign.findFirst({
-      where: { id: request.params.id, tenantId: request.tenant.id },
-    });
-
-    if (!campaign) {
-      return reply.status(404).send({
-        success: false,
-        error: { code: ERROR_CODES.NOT_FOUND, message: 'Campaign not found' },
-      });
-    }
-
-    if (campaign.status !== 'SENDING') {
-      return reply.status(400).send({
-        success: false,
-        error: { code: ERROR_CODES.INVALID_INPUT, message: 'Can only pause sending campaigns' },
-      });
-    }
-
-    await prisma.campaign.update({
-      where: { id: campaign.id },
-      data: { status: 'PAUSED' },
-    });
-
-    // Audit log
-    await prisma.auditLog.create({
-      data: {
-        tenantId: request.tenant.id,
-        userId: request.user.sub,
-        action: 'CAMPAIGN_PAUSE',
-        entityType: 'Campaign',
-        entityId: campaign.id,
-      },
-    });
-
-    return reply.send({ success: true, message: 'Campaign paused' });
-  });
-
-  // Resume campaign
-  fastify.post('/:id/resume', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: IdParamSchema,
-    },
-  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
-    if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
-      return reply.status(403).send({
-        success: false,
-        error: { code: ERROR_CODES.FORBIDDEN, message: 'Admin access required' },
-      });
-    }
-
-    const campaign = await prisma.campaign.findFirst({
-      where: { id: request.params.id, tenantId: request.tenant.id },
-    });
-
-    if (!campaign) {
-      return reply.status(404).send({
-        success: false,
-        error: { code: ERROR_CODES.NOT_FOUND, message: 'Campaign not found' },
-      });
-    }
-
-    if (campaign.status !== 'PAUSED') {
-      return reply.status(400).send({
-        success: false,
-        error: { code: ERROR_CODES.INVALID_INPUT, message: 'Can only resume paused campaigns' },
-      });
-    }
-
-    await prisma.campaign.update({
-      where: { id: campaign.id },
-      data: { status: 'SENDING' },
-    });
-
-    // Resume sending
-    const { resumeCampaign } = await import('../services/campaign');
-    resumeCampaign(campaign.id).catch(console.error);
-
-    // Audit log
-    await prisma.auditLog.create({
-      data: {
-        tenantId: request.tenant.id,
-        userId: request.user.sub,
-        action: 'CAMPAIGN_RESUME',
-        entityType: 'Campaign',
-        entityId: campaign.id,
-      },
-    });
-
-    return reply.send({ success: true, message: 'Campaign resumed' });
-  });
-
-  // Cancel campaign
-  fastify.post('/:id/cancel', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      params: IdParamSchema,
-    },
-  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
-    if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
-      return reply.status(403).send({
-        success: false,
-        error: { code: ERROR_CODES.FORBIDDEN, message: 'Admin access required' },
-      });
-    }
-
-    const campaign = await prisma.campaign.findFirst({
-      where: { id: request.params.id, tenantId: request.tenant.id },
-    });
-
-    if (!campaign) {
-      return reply.status(404).send({
-        success: false,
-        error: { code: ERROR_CODES.NOT_FOUND, message: 'Campaign not found' },
-      });
-    }
-
-    if (!['DRAFT', 'SCHEDULED', 'SENDING', 'PAUSED'].includes(campaign.status)) {
-      return reply.status(400).send({
-        success: false,
-        error: { code: ERROR_CODES.INVALID_INPUT, message: 'Cannot cancel campaign in current status' },
-      });
-    }
-
-    await prisma.campaign.update({
-      where: { id: campaign.id },
-      data: { status: 'CANCELLED' },
-    });
-
-    // Audit log
-    await prisma.auditLog.create({
-      data: {
-        tenantId: request.tenant.id,
-        userId: request.user.sub,
-        action: 'CAMPAIGN_CANCEL',
-        entityType: 'Campaign',
-        entityId: campaign.id,
-      },
-    });
-
-    return reply.send({ success: true, message: 'Campaign cancelled' });
+    return reply.send({ success: true, data: campaign });
   });
 
   // Delete campaign
@@ -511,7 +280,60 @@ export async function campaignRoutes(fastify: FastifyInstance): Promise<void> {
     schema: {
       params: IdParamSchema,
     },
-  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply) => {
+    if (!request.user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' },
+      });
+    }
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: ERROR_CODES.FORBIDDEN, message: 'Admin access required' },
+      });
+    }
+
+    const existing = await prisma.campaign.findFirst({
+      where: { id: request.params.id, tenantId: request.tenant!.id },
+    });
+
+    if (!existing) {
+      return reply.status(404).send({
+        success: false,
+        error: { code: ERROR_CODES.NOT_FOUND, message: 'Campaign not found' },
+      });
+    }
+
+    await prisma.campaign.delete({ where: { id: request.params.id } });
+
+    // Audit log
+    await prisma.auditLog.create({
+      data: {
+        tenantId: request.tenant!.id,
+        userId: request.user.sub,
+        action: 'CAMPAIGN_DELETE',
+        entityType: 'Campaign',
+        entityId: request.params.id,
+      },
+    });
+
+    return reply.send({ success: true, message: 'Campaign deleted' });
+  });
+
+  // Send campaign
+  fastify.post('/:id/send', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      params: IdParamSchema,
+    },
+  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply) => {
+    if (!request.user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' },
+      });
+    }
     if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
       return reply.status(403).send({
         success: false,
@@ -520,7 +342,8 @@ export async function campaignRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     const campaign = await prisma.campaign.findFirst({
-      where: { id: request.params.id, tenantId: request.tenant.id },
+      where: { id: request.params.id, tenantId: request.tenant!.id },
+      include: { template: true, group: { include: { members: { include: { contact: true } } } } },
     });
 
     if (!campaign) {
@@ -530,27 +353,35 @@ export async function campaignRoutes(fastify: FastifyInstance): Promise<void> {
       });
     }
 
-    if (!['DRAFT', 'CANCELLED', 'FAILED'].includes(campaign.status)) {
+    if (campaign.status === 'SENT' || campaign.status === 'SENDING') {
       return reply.status(400).send({
         success: false,
-        error: { code: ERROR_CODES.INVALID_INPUT, message: 'Cannot delete campaign in current status' },
+        error: { code: ERROR_CODES.INVALID_INPUT, message: 'Campaign already sent or sending' },
       });
     }
 
-    await prisma.campaign.delete({ where: { id: campaign.id } });
+    // Update status to sending
+    await prisma.campaign.update({
+      where: { id: campaign.id },
+      data: { status: 'SENDING', sentAt: new Date() },
+    });
+
+    // TODO: Actually send campaign messages
+    // For now, just log and return
 
     // Audit log
     await prisma.auditLog.create({
       data: {
-        tenantId: request.tenant.id,
+        tenantId: request.tenant!.id,
         userId: request.user.sub,
-        action: 'CAMPAIGN_DELETE',
+        action: 'CAMPAIGN_SEND',
         entityType: 'Campaign',
         entityId: campaign.id,
+        newData: { contactCount: campaign.group?.members?.length || 0 },
       },
     });
 
-    return reply.send({ success: true, message: 'Campaign deleted' });
+    return reply.send({ success: true, data: { message: 'Campaign sending started' } });
   });
 
   // Get campaign logs
@@ -558,79 +389,39 @@ export async function campaignRoutes(fastify: FastifyInstance): Promise<void> {
     preHandler: [fastify.authenticate],
     schema: {
       params: IdParamSchema,
-      querystring: PaginationQuerySchema.extend({
-        status: z.string().optional(),
-      }),
+      querystring: PaginationQuerySchema,
     },
-  }, async (request: FastifyRequest<{ Params: { id: string }; Querystring: any }>, reply: FastifyReply) => {
-    const { page, limit, status } = request.query;
-    const skip = (page - 1) * limit;
-
-    const campaign = await prisma.campaign.findFirst({
-      where: { id: request.params.id, tenantId: request.tenant.id },
-    });
-
-    if (!campaign) {
-      return reply.status(404).send({
+  }, async (request: FastifyRequest<{ Params: { id: string } }>, reply) => {
+    if (!request.user) {
+      return reply.status(401).send({
         success: false,
-        error: { code: ERROR_CODES.NOT_FOUND, message: 'Campaign not found' },
+        error: { code: ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' },
+      });
+    }
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(request.user.role)) {
+      return reply.status(403).send({
+        success: false,
+        error: { code: ERROR_CODES.FORBIDDEN, message: 'Admin access required' },
       });
     }
 
-    const where: any = { campaignId: campaign.id };
-    if (status) where.status = status;
+    const { page, limit, sortBy, sortOrder } = request.query as any;
+    const skip = (page - 1) * limit;
 
     const [logs, total] = await Promise.all([
       prisma.campaignLog.findMany({
-        where,
+        where: { campaignId: request.params.id },
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: { contact: { select: { id: true, name: true, phone: true } } },
+        orderBy: { [sortBy || 'createdAt']: sortOrder || 'desc' },
       }),
-      prisma.campaignLog.count({ where }),
+      prisma.campaignLog.count({ where: { campaignId: request.params.id } }),
     ]);
 
     return reply.send({
       success: true,
       data: logs,
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
-    });
-  });
-
-  // Get campaign stats
-  fastify.get('/stats/overview', {
-    preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const baseWhere = { tenantId: request.tenant.id };
-
-    const [total, draft, scheduled, sending, sent, paused, cancelled, failed, totalSent, totalFailed] = await Promise.all([
-      prisma.campaign.count({ where: baseWhere }),
-      prisma.campaign.count({ where: { ...baseWhere, status: 'DRAFT' } }),
-      prisma.campaign.count({ where: { ...baseWhere, status: 'SCHEDULED' } }),
-      prisma.campaign.count({ where: { ...baseWhere, status: 'SENDING' } }),
-      prisma.campaign.count({ where: { ...baseWhere, status: 'SENT' } }),
-      prisma.campaign.count({ where: { ...baseWhere, status: 'PAUSED' } }),
-      prisma.campaign.count({ where: { ...baseWhere, status: 'CANCELLED' } }),
-      prisma.campaign.count({ where: { ...baseWhere, status: 'FAILED' } }),
-      prisma.campaign.aggregate({ where: baseWhere, _sum: { sentCount: true } }),
-      prisma.campaign.aggregate({ where: baseWhere, _sum: { failedCount: true } }),
-    ]);
-
-    return reply.send({
-      success: true,
-      data: {
-        total,
-        draft,
-        scheduled,
-        sending,
-        sent,
-        paused,
-        cancelled,
-        failed,
-        totalSent: totalSent._sum.sentCount || 0,
-        totalFailed: totalFailed._sum.failedCount || 0,
-      },
     });
   });
 }

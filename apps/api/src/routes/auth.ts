@@ -1,40 +1,10 @@
-import { FastifyInstance, FastifyRequest, FastifyReply, RouteGenericInterface } from 'fastify';
+import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../services/prisma';
 import { config } from '@zapti/shared/config';
 import { ERROR_CODES } from '@zapti/shared/constants';
 import { hashPassword, verifyPassword, generateAccessToken, generateRefreshToken, verifyToken, extractTokenFromHeader, JWTPayload } from '@zapti/shared/auth';
 import crypto from 'crypto';
-
-// Properly typed authenticated request
-interface AuthenticatedRequest extends FastifyRequest {
-  user: JWTPayload;
-  tenant: {
-    id: string;
-    name: string;
-    isActive: boolean;
-    slug: string;
-    domain: string | null;
-    logo: string | null;
-    primaryColor: string;
-    secondaryColor: string;
-    accentColor: string;
-    fontFamily: string | null;
-    timezone: string;
-    locale: string;
-  };
-}
-
-// Helper to get authenticated request with proper typing
-function getAuthRequest(request: FastifyRequest): AuthenticatedRequest {
-  return request as AuthenticatedRequest;
-}
-
-// Helper type for authenticated route handlers
-type AuthenticatedHandler<RouteGeneric extends RouteGenericInterface = RouteGenericInterface> = (
-  request: FastifyRequest<RouteGeneric> & { user: JWTPayload; tenant: AuthenticatedRequest['tenant'] },
-  reply: FastifyReply
-) => Promise<void>;
 
 function hashToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
@@ -65,8 +35,8 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         password: z.string().min(1),
       }),
     },
-  }, async (request: FastifyRequest<{ Body: { email: string; password: string } }>, reply: FastifyReply) => {
-    const { email, password } = request.body;
+  }, async (request, reply) => {
+    const { email, password } = request.body as { email: string; password: string };
 
     const user = await prisma.user.findFirst({
       where: { email, isActive: true },
@@ -103,7 +73,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     });
 
     // Store refresh token
-    const refreshTokenHash = await hashToken(refreshToken);
+    const refreshTokenHash = hashToken(refreshToken);
     await prisma.refreshToken.create({
       data: {
         userId: user.id,
@@ -158,7 +128,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     schema: {
       body: z.object({}).optional(),
     },
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
+  }, async (request, reply) => {
     const refreshToken = request.cookies.refreshToken;
 
     if (!refreshToken) {
@@ -168,7 +138,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       });
     }
 
-    const refreshTokenHash = await hashToken(refreshToken);
+    const refreshTokenHash = hashToken(refreshToken);
 
     const storedToken = await prisma.refreshToken.findFirst({
       where: { tokenHash: refreshTokenHash, expiresAt: { gt: new Date() } },
@@ -194,7 +164,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     // Rotate refresh token
     await prisma.refreshToken.delete({ where: { id: storedToken.id } });
 
-    const newRefreshTokenHash = await hashToken(newRefreshToken);
+    const newRefreshTokenHash = hashToken(newRefreshToken);
     await prisma.refreshToken.create({
       data: {
         userId: storedToken.user.id,
@@ -234,13 +204,20 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // Logout
-  fastify.post<{ Querystring: Record<string, never> }>('/logout', {
+  fastify.post('/logout', {
     preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest<{ Querystring: Record<string, never> }> & { user: JWTPayload; tenant: { id: string } }, reply: FastifyReply) => {
+  }, async (request, reply) => {
+    if (!request.user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' },
+      });
+    }
+
     const refreshToken = request.cookies.refreshToken;
 
     if (refreshToken) {
-      const refreshTokenHash = await hashToken(refreshToken);
+      const refreshTokenHash = hashToken(refreshToken);
       await prisma.refreshToken.deleteMany({ where: { tokenHash: refreshTokenHash } });
     }
 
@@ -250,7 +227,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     // Audit log
     await prisma.auditLog.create({
       data: {
-        tenantId: request.tenant.id,
+        tenantId: request.tenant!.id,
         userId: request.user.sub,
         action: 'LOGOUT',
         entityType: 'User',
@@ -262,9 +239,16 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // Get current user
-  fastify.get<{ Querystring: Record<string, never> }>('/me', {
+  fastify.get('/me', {
     preHandler: [fastify.authenticate],
-  }, async (request: FastifyRequest<{ Querystring: Record<string, never> }> & { user: JWTPayload }, reply: FastifyReply) => {
+  }, async (request, reply) => {
+    if (!request.user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' },
+      });
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: request.user.sub },
       include: {
@@ -298,7 +282,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // Update current user profile
-  fastify.patch<{ Body: { name?: string; avatar?: string; currentPassword?: string; newPassword?: string } }>('/me', {
+  fastify.patch('/me', {
     preHandler: [fastify.authenticate],
     schema: {
       body: z.object({
@@ -308,8 +292,16 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         newPassword: z.string().min(8).optional(),
       }),
     },
-  }, async (request: FastifyRequest<{ Body: { name?: string; avatar?: string; currentPassword?: string; newPassword?: string } }> & { user: JWTPayload }, reply: FastifyReply) => {
-    const { name, avatar, currentPassword, newPassword } = request.body;
+  }, async (request, reply) => {
+    if (!request.user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.UNAUTHORIZED, message: 'Authentication required' },
+      });
+    }
+
+    const body = request.body as { name?: string; avatar?: string; currentPassword?: string; newPassword?: string };
+    const { name, avatar, currentPassword, newPassword } = body;
 
     const user = await prisma.user.findUnique({ where: { id: request.user.sub } });
 
@@ -332,7 +324,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         });
       }
 
-      if (!await verifyPassword(currentPassword, user.passwordHash)) {
+      if (!(await verifyPassword(currentPassword, user.passwordHash))) {
         return reply.status(401).send({
           success: false,
           error: { code: ERROR_CODES.INVALID_CREDENTIALS, message: 'Current password is incorrect' },
@@ -351,8 +343,8 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     // Audit log
     await prisma.auditLog.create({
       data: {
-        tenantId: authRequest.tenant.id,
-        userId: authRequest.user.sub,
+        tenantId: request.tenant!.id,
+        userId: request.user.sub,
         action: 'USER_PROFILE_UPDATE',
         entityType: 'User',
         entityId: user.id,
@@ -368,8 +360,8 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     schema: {
       body: z.object({ email: z.string().email() }),
     },
-  }, async (request: FastifyRequest<{ Body: { email: string } }>, reply: FastifyReply) => {
-    const { email } = request.body;
+  }, async (request, reply) => {
+    const { email } = request.body as { email: string };
 
     const user = await prisma.user.findFirst({
       where: { email, isActive: true },
@@ -383,7 +375,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
     // Generate reset token
     const token = generateInvitationToken();
-    const tokenHash = await hashToken(token);
+    const tokenHash = hashToken(token);
 
     await prisma.passwordReset.create({
       data: {
@@ -420,8 +412,8 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         password: z.string().min(8),
       }),
     },
-  }, async (request: FastifyRequest<{ Body: { token: string; email: string; password: string } }>, reply: FastifyReply) => {
-    const { token, email, password } = request.body;
+  }, async (request, reply) => {
+    const { token, email, password } = request.body as { token: string; email: string; password: string };
 
     const user = await prisma.user.findFirst({ where: { email, isActive: true } });
 
@@ -436,7 +428,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       where: { userId: user.id, expiresAt: { gt: new Date() } },
     });
 
-    if (!resetRecord || !await verifyTokenHash(token, resetRecord.tokenHash)) {
+    if (!resetRecord || !verifyTokenHash(token, resetRecord.tokenHash)) {
       return reply.status(400).send({
         success: false,
         error: { code: ERROR_CODES.TOKEN_INVALID, message: 'Invalid or expired reset token' },
@@ -480,8 +472,8 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         tenantName: z.string().min(1).max(200).optional(),
       }),
     },
-  }, async (request: FastifyRequest<{ Body: { email: string; password: string; name: string; tenantName?: string } }>, reply: FastifyReply) => {
-    const { email, password, name, tenantName } = request.body;
+  }, async (request, reply) => {
+    const { email, password, name, tenantName } = request.body as { email: string; password: string; name: string; tenantName?: string };
 
     // Check if registration is allowed
     const cfg = config();
@@ -531,7 +523,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     });
 
     // Store refresh token
-    const refreshTokenHash = await hashToken(refreshToken);
+    const refreshTokenHash = hashToken(refreshToken);
     await prisma.refreshToken.create({
       data: {
         userId: user.id,

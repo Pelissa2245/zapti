@@ -6,7 +6,316 @@
   "hideUnresolved": false,
   "showOrphans": true,
   "collapse-color-groups": true,
-  "colorGroups": [],
+  "colorGroups": [
+    {
+      "query": "tag:#community/API_Bootstrap___Middleware",
+      "color": {
+        "a": 1,
+        "rgb": 16739179
+      }
+    },
+    {
+      "query": "tag:#community/Architecture_ADRs___Module_Map",
+      "color": {
+        "a": 1,
+        "rgb": 5164484
+      }
+    },
+    {
+      "query": "tag:#community/Automation_Engine_Execution",
+      "color": {
+        "a": 1,
+        "rgb": 4569041
+      }
+    },
+    {
+      "query": "tag:#community/Web_Package_Configuration",
+      "color": {
+        "a": 1,
+        "rgb": 9883316
+      }
+    },
+    {
+      "query": "tag:#community/Task_Board___Project_Plan",
+      "color": {
+        "a": 1,
+        "rgb": 16771751
+      }
+    },
+    {
+      "query": "tag:#community/API_Package_Dependencies",
+      "color": {
+        "a": 1,
+        "rgb": 14524637
+      }
+    },
+    {
+      "query": "tag:#community/Web_UI_Component_Dependencies",
+      "color": {
+        "a": 1,
+        "rgb": 10016968
+      }
+    },
+    {
+      "query": "tag:#community/Shared_Utility_Functions",
+      "color": {
+        "a": 1,
+        "rgb": 16243823
+      }
+    },
+    {
+      "query": "tag:#community/Monorepo_Root_Configuration",
+      "color": {
+        "a": 1,
+        "rgb": 12292046
+      }
+    },
+    {
+      "query": "tag:#community/Validation_Schemas__Zod_",
+      "color": {
+        "a": 1,
+        "rgb": 8765929
+      }
+    },
+    {
+      "query": "tag:#community/Shared_Constants___Enums",
+      "color": {
+        "a": 1,
+        "rgb": 16299264
+      }
+    },
+    {
+      "query": "tag:#community/Shared_TypeScript_Types",
+      "color": {
+        "a": 1,
+        "rgb": 52945
+      }
+    },
+    {
+      "query": "tag:#community/Database_Package_Configuration",
+      "color": {
+        "a": 1,
+        "rgb": 16738740
+      }
+    },
+    {
+      "query": "tag:#community/Shared_Package_Exports",
+      "color": {
+        "a": 1,
+        "rgb": 3329330
+      }
+    },
+    {
+      "query": "tag:#community/API_TypeScript_Configuration",
+      "color": {
+        "a": 1,
+        "rgb": 16747520
+      }
+    },
+    {
+      "query": "tag:#community/Build_Order___Architecture_Docs",
+      "color": {
+        "a": 1,
+        "rgb": 9055202
+      }
+    },
+    {
+      "query": "tag:#community/Root_TypeScript_Configuration",
+      "color": {
+        "a": 1,
+        "rgb": 64154
+      }
+    },
+    {
+      "query": "tag:#community/Web_TypeScript_Configuration",
+      "color": {
+        "a": 1,
+        "rgb": 16729344
+      }
+    },
+    {
+      "query": "tag:#community/Shared_TypeScript_Configuration",
+      "color": {
+        "a": 1,
+        "rgb": 2003199
+      }
+    },
+    {
+      "query": "tag:#community/API_Fastify_Plugin_Dependencies",
+      "color": {
+        "a": 1,
+        "rgb": 16716947
+      }
+    },
+    {
+      "query": "tag:#community/Database_TypeScript_Configuration",
+      "color": {
+        "a": 1,
+        "rgb": 49151
+      }
+    },
+    {
+      "query": "tag:#community/Shared_Package_Configuration",
+      "color": {
+        "a": 1,
+        "rgb": 11403055
+      }
+    },
+    {
+      "query": "tag:#community/Authentication_Routes___Handlers",
+      "color": {
+        "a": 1,
+        "rgb": 16766720
+      }
+    },
+    {
+      "query": "tag:#community/Integration_Testing_Services",
+      "color": {
+        "a": 1,
+        "rgb": 14423100
+      }
+    },
+    {
+      "query": "tag:#community/Web_Dev_Dependencies",
+      "color": {
+        "a": 1,
+        "rgb": 65535
+      }
+    },
+    {
+      "query": "tag:#community/Auth_Utilities__JWT___Password_",
+      "color": {
+        "a": 1,
+        "rgb": 9055202
+      }
+    },
+    {
+      "query": "tag:#community/Environment___Operations_Handbook",
+      "color": {
+        "a": 1,
+        "rgb": 8388352
+      }
+    },
+    {
+      "query": "tag:#community/Shared_Runtime_Dependencies",
+      "color": {
+        "a": 1,
+        "rgb": 16737095
+      }
+    },
+    {
+      "query": "tag:#community/Shared_Dev_Dependencies",
+      "color": {
+        "a": 1,
+        "rgb": 4251856
+      }
+    },
+    {
+      "query": "tag:#community/Email_Service",
+      "color": {
+        "a": 1,
+        "rgb": 15631086
+      }
+    },
+    {
+      "query": "tag:#community/Generic_Package_Scripts",
+      "color": {
+        "a": 1,
+        "rgb": 15787660
+      }
+    },
+    {
+      "query": "tag:#community/Web_App_Layout___Globals",
+      "color": {
+        "a": 1,
+        "rgb": 10025880
+      }
+    },
+    {
+      "query": "tag:#community/Web_Onboarding___Home_Pages",
+      "color": {
+        "a": 1,
+        "rgb": 11529966
+      }
+    },
+    {
+      "query": "tag:#community/Generic_Package_Scripts",
+      "color": {
+        "a": 1,
+        "rgb": 14204888
+      }
+    },
+    {
+      "query": "tag:#community/Config_Validation__Zod_Env_",
+      "color": {
+        "a": 1,
+        "rgb": 16113331
+      }
+    },
+    {
+      "query": "tag:#community/Prisma_Client_Singleton",
+      "color": {
+        "a": 1,
+        "rgb": 16752762
+      }
+    },
+    {
+      "query": "tag:#community/Next_js_Configuration",
+      "color": {
+        "a": 1,
+        "rgb": 2142890
+      }
+    },
+    {
+      "query": "tag:#community/Tailwind_CSS_Configuration",
+      "color": {
+        "a": 1,
+        "rgb": 8900331
+      }
+    },
+    {
+      "query": "tag:#community/Application_Error_Class",
+      "color": {
+        "a": 1,
+        "rgb": 16753920
+      }
+    },
+    {
+      "query": "tag:#community/Retry___Sleep_Utilities",
+      "color": {
+        "a": 1,
+        "rgb": 14381203
+      }
+    },
+    {
+      "query": "tag:#community/PostCSS_Configuration",
+      "color": {
+        "a": 1,
+        "rgb": 9498256
+      }
+    },
+    {
+      "query": "tag:#community/Debugging___Troubleshooting_Notes",
+      "color": {
+        "a": 1,
+        "rgb": 16758465
+      }
+    },
+    {
+      "query": "tag:#community/Status_Summary_Dashboard",
+      "color": {
+        "a": 1,
+        "rgb": 8900346
+      }
+    },
+    {
+      "query": "tag:#community/Timezone_Utility",
+      "color": {
+        "a": 1,
+        "rgb": 14524637
+      }
+    }
+  ],
   "collapse-display": true,
   "showArrow": false,
   "textFadeMultiplier": 0,
@@ -17,6 +326,6 @@
   "repelStrength": 10,
   "linkStrength": 1,
   "linkDistance": 250,
-  "scale": 0.713275462622439,
+  "scale": 0.08317427835927499,
   "close": true
 }

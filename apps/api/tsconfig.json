@@ -19,7 +19,7 @@
       "@/*": ["src/*"],
       "@zapti/shared/*": ["../../packages/shared/dist/*"]
     },
-    "types": ["node", "fastify"]
+    "typeRoots": ["./src/types", "./node_modules/@types"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
